@@ -6,7 +6,9 @@ bygger `public/` og Netlify Functions fra `netlify/functions/`.
 Dette arbeidet innfører e-postkode og en innlogget ukevisning av egendefinerte
 Wix-arbeidstider. Det er et utviklingstrinn før romreservasjoner og Wix-synk
 kan tas i bruk. Ukevisningen viser individuelt registrerte arbeidstider fra
-Wix. Den utleder ingen romfordeling fra arbeidstidene.
+Wix. Den utleder ingen romfordeling fra arbeidstidene. Wix er fasit. Administrator
+ser overlapp, ugyldige intervaller og ukjente timeplaner i en egen oversikt.
+Disse avvikene utløser ingen endring av arbeidstidene i Wix.
 
 ## Konfigurasjon for integrasjonstest
 
