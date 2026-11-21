@@ -181,14 +181,14 @@ async function signedInUser(config, request) {
   return role ? { email, role } : null;
 }
 
-function databaseRequest(config, query, row, method = row ? 'POST' : 'GET') {
+function databaseRequest(config, query, row, method = row ? 'POST' : 'GET', collection = 'room_assignments') {
   const headers = { apikey: config.databaseKey };
   if (row) {
     headers['Content-Type'] = 'application/json';
     headers.Prefer = method === 'PATCH' ? 'return=representation' :
       query === 'on_conflict=wix_event_id' ? 'resolution=merge-duplicates,return=minimal' : 'return=minimal';
   }
-  return fetch(config.authOrigin + '/rest/v1/room_assignments?' + query, {
+  return fetch(config.authOrigin + '/rest/v1/' + collection + '?' + query, {
     method,
     headers,
     body: row ? JSON.stringify(row) : undefined,
@@ -201,7 +201,7 @@ async function readRooms(config, monday, hours) {
   if (!config.databaseKey) return false;
   const end = new Date(Date.parse(monday + 'T00:00:00Z') + 7 * 86400000).toISOString().slice(0, 10);
   const query = new URLSearchParams({
-    select: 'wix_event_id,room,starts_at,ends_at',
+    select: 'wix_event_id,room,starts_at,ends_at,tenant_id,room_tenants(name)',
     starts_at: 'lt.' + end + 'T00:00:00',
     ends_at: 'gt.' + monday + 'T00:00:00',
   });
@@ -241,6 +241,74 @@ async function assignRoom(config, request, input) {
 const workBlocks = [['08:00', '12:30'], ['12:45', '17:15'], ['17:30', '22:00']];
 const overlaps = (a, b) => a.start < b.end && b.start < a.end;
 
+const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+const canManageRentals = role => ['admin', 'rental-manager'].includes(role);
+
+async function readTenants(config) {
+  const res = await databaseRequest(config, 'select=id,name&order=name', undefined, 'GET', 'room_tenants');
+  if (!res.ok) throw new Error('Tenant lookup failed');
+  return res.json();
+}
+
+async function manageRental(config, request, input) {
+  const user = await signedInUser(config, request);
+  if (!canManageRentals(user?.role)) return respond(403, { error: 'Du har ikke tilgang til romleie.' });
+  if (!config.databaseKey) return respond(503, { error: 'Lagring av rom er ikke konfigurert.' });
+
+  if (input.action === 'add-tenant') {
+    const name = typeof input.name === 'string' ? input.name.trim().replace(/\s+/g, ' ') : '';
+    if (!name || name.length > 60) return respond(400, { error: 'Skriv et navn på inntil 60 tegn.' });
+    const res = await databaseRequest(config, '', { name }, 'POST', 'room_tenants');
+    if (res.status === 409) return respond(409, { error: 'Leietakeren finnes allerede.' });
+    if (!res.ok) throw new Error('Tenant creation failed');
+    return respond(200, {});
+  }
+
+  const { id, tenantId, week: monday, room, date, from, to } = input;
+  if (typeof id !== 'string' || !uuid.test(id)) return respond(400, { error: 'Ugyldig reservasjon.' });
+  const key = 'rental-' + id;
+  const query = new URLSearchParams({ wix_event_id: 'eq.' + key, tenant_id: 'not.is.null' });
+  if (input.action === 'release-rental') {
+    const res = await databaseRequest(config, query, undefined, 'DELETE');
+    if (!res.ok) throw new Error('Rental release failed');
+    return respond(200, {});
+  }
+
+  const clock = /^([01]\d|2[0-3]):[0-5]\d$/;
+  if (typeof tenantId !== 'string' || !uuid.test(tenantId) || typeof monday !== 'string'
+      || typeof date !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(date) || !clock.test(from) || !clock.test(to) || from >= to
+      || !['mandibula', 'maxilla'].includes(room) || !workBlocks.some(([a, b]) => from >= a && to <= b)) {
+    return respond(400, { error: 'Velg leietaker, rom og tid innenfor én bolk.' });
+  }
+  const week = await readWeek(config, monday);
+  if (!week) return respond(400, { error: 'Ugyldig uke.' });
+  const dateOffset = (Date.parse(date + 'T00:00:00Z') - Date.parse(monday + 'T00:00:00Z')) / 86400000;
+  if (!Number.isInteger(dateOffset) || dateOffset < 0 || dateOffset > 6 || date < osloNow().slice(0, 10)) {
+    return respond(400, { error: 'Velg en fremtidig dato i den viste uken.' });
+  }
+  const period = { start: date + 'T' + from + ':00', end: date + 'T' + to + ':00' };
+  if (period.start <= osloNow()) return respond(400, { error: 'Velg et fremtidig tidspunkt.' });
+  await readRooms(config, monday, week.hours);
+  if (week.issues.some(issue => issue.type === 'unknown' && overlaps(issue, period))
+      || week.hours.some(hour => overlaps(hour, period) && (!hour.room || hour.room === room))) {
+    return respond(409, { error: 'Tiden overlapper en arbeidstid i Wix. Ufordelt arbeidstid må avklares først.' });
+  }
+  const row = { tenant_id: tenantId, room, starts_at: period.start, ends_at: period.end };
+  const updating = input.action === 'update-rental';
+  const res = updating
+    ? await databaseRequest(config, query, row, 'PATCH')
+    : await databaseRequest(config, '', { wix_event_id: key, ...row });
+  if (res.status === 409) return respond(409, { error: 'Rommet eller leietakeren er allerede reservert i perioden.' });
+  if (!res.ok) throw new Error('Rental save failed');
+  if (updating && (await res.json()).length !== 1) return respond(409, { error: 'Reservasjonen finnes ikke lenger.' });
+  return respond(200, {});
+}
+
+function osloNow() {
+  return new Intl.DateTimeFormat('sv-SE', { timeZone: 'Europe/Oslo', year: 'numeric', month: '2-digit', day: '2-digit',
+    hour: '2-digit', minute: '2-digit', second: '2-digit', hourCycle: 'h23' }).format(new Date()).replace(' ', 'T');
+}
+
 async function reserveRoom(config, request, input) {
   const user = await signedInUser(config, request);
   if (!user || !['admin', 'therapist'].includes(user.role)) return respond(403, { error: 'Du kan bare reservere din egen arbeidstid.' });
@@ -255,7 +323,7 @@ async function reserveRoom(config, request, input) {
   const week = await readWeek(config, monday);
   if (!week) return respond(400, { error: 'Velg en gyldig uke.' });
   const days = Array.from({ length: 7 }, (_, i) => new Date(Date.parse(monday + 'T00:00:00Z') + i * 86400000).toISOString().slice(0, 10));
-  const now = new Intl.DateTimeFormat('sv-SE', { timeZone: 'Europe/Oslo', year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', second: '2-digit', hourCycle: 'h23' }).format(new Date()).replace(' ', 'T');
+  const now = osloNow();
   const period = { start: date + 'T' + from + ':00', end: date + 'T' + to + ':00' };
   if (!days.includes(date) || period.start <= now) return respond(400, { error: 'Velg en fremtidig tid i den viste uken.' });
   const staff = week.staff.filter(person => emailKey(person.email) === user.email && !person.resource?.usesDefaultWorkingHours);
@@ -317,6 +385,7 @@ export default async function handler(request) {
       if (request.headers.get('Origin') !== url.origin) return respond(403, { error: 'Ugyldig forespørsel.' });
       const input = await request.json();
       const { action, email, code } = input;
+      if (['add-tenant', 'reserve-rental', 'update-rental', 'release-rental'].includes(action)) return await manageRental(settings(), request, input);
       if (action === 'reserve-room') return await reserveRoom(settings(), request, input);
       if (action === 'assign-room') return await assignRoom(settings(), request, input);
       if (action === 'logout') return respond(200, {}, { 'Set-Cookie': session('', 0) });
@@ -354,8 +423,13 @@ export default async function handler(request) {
     const hours = week.hours.map(({ scheduleId, ...hour }) => hour);
     for (const room of rooms || []) {
       if (room.wix_event_id.startsWith('pending-')) hours.push({ name: 'Avventer Wix', start: room.starts_at, end: room.ends_at, room: room.room });
+      if (room.tenant_id) hours.push({
+        name: room.room_tenants?.name ?? 'Romleie', start: room.starts_at, end: room.ends_at, room: room.room,
+        rental: canManageRentals(role) ? { id: room.wix_event_id.slice('rental-'.length), tenantId: room.tenant_id } : undefined,
+      });
     }
-    return respond(200, { role, hours, temple, roomsEnabled: Boolean(rooms), reservationEnabled: Boolean(rooms) && process.env.ENABLE_WIX_WRITES === 'true' && ['admin', 'therapist'].includes(role), issues: role === 'admin' ? week.issues : [] });
+    const tenants = rooms && canManageRentals(role) ? await readTenants(config).catch(() => null) : null;
+    return respond(200, { role, hours, temple, tenants, roomsEnabled: Boolean(rooms), reservationEnabled: Boolean(rooms) && process.env.ENABLE_WIX_WRITES === 'true' && ['admin', 'therapist'].includes(role), issues: role === 'admin' ? week.issues : [] });
   } catch {
     return respond(503, { error: 'Kalenderen er midlertidig utilgjengelig.' });
   }
