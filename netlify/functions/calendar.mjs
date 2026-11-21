@@ -461,7 +461,8 @@ export default async function handler(request) {
       });
     }
     const tenants = rooms && canManageRentals(role) ? await readTenants(config).catch(() => null) : null;
-    return respond(200, { role, hours, temple, tenants, ...(role === 'admin' ? { members: config.members } : {}), roomsEnabled: Boolean(rooms), reservationEnabled: Boolean(rooms) && process.env.ENABLE_WIX_WRITES === 'true' && ['admin', 'therapist'].includes(role), issues: role === 'admin' ? week.issues : [] });
+    const unassignedBlocks = week.issues.filter(issue => issue.type === 'unknown').map(({ start, end }) => ({ start, end }));
+    return respond(200, { role, hours, temple, tenants, unassignedBlocks, ...(role === 'admin' ? { members: config.members } : {}), roomsEnabled: Boolean(rooms), reservationEnabled: Boolean(rooms) && process.env.ENABLE_WIX_WRITES === 'true' && ['admin', 'therapist'].includes(role), issues: role === 'admin' ? week.issues : [] });
   } catch {
     return respond(503, { error: 'Kalenderen er midlertidig utilgjengelig.' });
   }
