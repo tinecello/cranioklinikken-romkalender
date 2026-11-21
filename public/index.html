@@ -18,6 +18,14 @@
 <section id="calendar" hidden>
 <h2 id="week"></h2>
 <div class="actions"><button id="prev">Forrige uke</button><button id="next">Neste uke</button><button id="logout">Logg ut</button></div>
+<form id="reservation" hidden>
+<h3>Reserver arbeidstid</h3>
+<label for="room">Rom</label><select id="room"><option value="mandibula">Mandibula</option><option value="maxilla">Maxilla</option></select>
+<label for="reservationDate">Dato</label><input id="reservationDate" type="date" required>
+<label for="from">Fra</label><input id="from" type="time" required>
+<label for="to">Til</label><input id="to" type="time" required>
+<button id="reserve" type="submit">Reserver</button><p id="reservationStatus" role="status"></p>
+</form>
 <div class="days" id="days"></div>
 <details id="issues" hidden><summary id="issueSummary"></summary><ul id="issueList"></ul></details>
 </section><section id="temple" class="temple" hidden><h2>Templet</h2><p id="templeStatus" hidden></p><div class="days" id="templeDays"></div></section></main>
@@ -147,7 +155,13 @@ async function load(){
   $('login').hidden=status===200;
   $('calendar').hidden=$('temple').hidden=status!==200;
   $('status').textContent=status===401?'':data.error??'';
-  if(status===200){render(data.hours,data.roomsEnabled&&data.role==='admin');renderIssues(data.issues);renderTemple(data.temple);}
+  if(status===200){
+   const day=$('reservationDate');
+   day.min=week;
+   day.max=shift(week,6);
+   if(day.value<day.min||day.value>day.max)day.value=week;
+   $('reservation').hidden=!data.reservationEnabled;
+   render(data.hours,data.roomsEnabled&&data.role==='admin');renderIssues(data.issues);renderTemple(data.temple);}
  }catch{
   if(request===revision)$('status').textContent='Kalenderen er midlertidig utilgjengelig.';
  }
@@ -171,6 +185,23 @@ $('login').onsubmit=async event=>{
  finally{$('loginButton').disabled=$('changeEmail').disabled=false;}
 };
 $('changeEmail').onclick=()=>{codeStep(false);$('status').textContent='';$('email').focus();};
+$('reservation').onsubmit=async event=>{
+ event.preventDefault();
+ const input={action:'reserve-room',week,room:$('room').value,date:$('reservationDate').value,from:$('from').value,to:$('to').value};
+ const key='cranio-reservation:'+JSON.stringify(input);
+ let id=sessionStorage.getItem(key);
+ if(!id){
+  id=crypto.randomUUID();
+  sessionStorage.setItem(key,id);
+ }
+ $('reserve').disabled=true;
+ try{
+  const {status,data}=await api({...input,id});
+  $('reservationStatus').textContent=status===200?'Arbeidstiden er reservert.':data.error??'Kunne ikke reservere tiden.';
+  if(status===200)await load();
+ }catch{$('reservationStatus').textContent='Svaret kom ikke frem. Prøv samme reservasjon igjen.';}
+ finally{$('reserve').disabled=false;}
+};
 $('prev').onclick=()=>{week=shift(week,-7);load();};
 $('next').onclick=()=>{week=shift(week,7);load();};
 $('logout').onclick=async()=>{
