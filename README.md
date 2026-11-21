@@ -43,3 +43,11 @@ Databasen avviser overlapp for samme rom, også ved samtidige oppdateringer.
 En tildeling som ikke lenger stemmer med Wix-perioden vises som ufordelt.
 En gammel tildeling kan fortsatt blokkere et rom inntil den er oppdatert
 eller ryddet bort av en databaseadministrator.
+
+Ny arbeidstid kan reserveres av innloggede terapeuter når begge migreringer
+er kjørt og `ENABLE_WIX_WRITES=true` er satt. Hold funksjonen av i produksjon
+inntil endepunktet er testet med en separat Wix-testplan. Wix-nøkkelen trenger
+skrivetilgang til kalenderen. Supabase låser rom og terapeut før Wix-kallet.
+Ved uklart svar beholdes reservasjonen i status «Avventer Wix». Ved å sende
+inn samme reservasjon i samme nettleserfane brukes den samme forespørsels-ID-en.
+Redigering, sletting og romleie kan ikke gjøres gjennom dette endepunktet.
