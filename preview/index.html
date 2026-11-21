@@ -1,0 +1,257 @@
+<!doctype html><html lang="nb"><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Cranioklinikken · Arbeidstid</title>
+<style>
+:root{color-scheme:light;--paper:#f7f4ee;--green:#0f3b3a;--text:#24231f;--line:#e2ddd3;--muted:#625e55;--copper:#c97f4e}
+*{box-sizing:border-box}body{margin:0;background:var(--paper);color:var(--text);font:16px system-ui,sans-serif}button{font:inherit;cursor:pointer}button:focus-visible{outline:3px solid var(--copper);outline-offset:3px}header{border-bottom:1px solid var(--line);background:#fffdf8}header div,main,footer{max-width:1310px;margin:auto;padding:0 28px}header div{display:flex;align-items:center;gap:12px;min-height:75px;color:var(--green)}header img{width:46px;height:46px;object-fit:contain}header strong{font:25px Georgia,serif}header span{margin-left:auto;font-size:14px;color:var(--muted)}main{padding-top:42px}h1,h2{font-family:Georgia,serif;font-weight:400;color:var(--green);margin:0}h1{font-size:clamp(42px,6vw,68px);letter-spacing:-.045em}h2{font-size:29px}p{line-height:1.55}.intro{margin:10px 0 24px;color:var(--muted)}.tabs,.actions,.legend{display:flex;gap:9px;flex-wrap:wrap}.tabs{margin-bottom:15px}button{background:#fffdf8;color:var(--green);border:1px solid var(--line);padding:9px 13px;border-radius:8px}.tabs [aria-pressed=true],.primary{background:var(--green);color:white;border-color:var(--green)}.panel{background:#fffdf8;border:1px solid var(--line);border-radius:17px;overflow:hidden}.toolbar{display:flex;justify-content:space-between;gap:16px;align-items:center;padding:21px 23px;flex-wrap:wrap}.toolbar p{margin:5px 0 0;color:var(--muted);font-size:14px}.scroller{overflow:auto}table{border-collapse:collapse;width:100%;min-width:1010px;table-layout:fixed}th,td{border:1px solid var(--line);text-align:left;padding:6px}th{background:#f4f0e8;color:var(--green);padding:10px;font-size:14px}th:first-child{width:148px}th time{display:block;color:var(--muted);font-weight:400;margin-top:4px}.room{position:sticky;left:0;z-index:1}.room small{display:block;font-size:13px;font-weight:400;color:var(--muted);margin-top:4px}.slot{width:100%;min-height:55px;text-align:left;background:#f1f6ef;border-color:#dae6d8;font-size:14px;padding:8px}.slot:disabled{cursor:default;opacity:1}.slot.busy{background:#f0ebe4;color:#585149;border-color:#e8e1d7}.slot.mine{background:#d9ebe7;border-color:#abcfc6;font-weight:650}.slot.past{background:#f4f1ec;border-color:#ebe6df;color:#6e685e}.legend{gap:19px;padding:16px 23px;font-size:14px;color:var(--muted)}.legend i{display:inline-block;width:11px;height:11px;border-radius:3px;margin-right:6px;background:#dcebd9}.legend span:nth-child(2) i{background:#e7ddd0}.legend span:nth-child(3) i{background:#abcfc6}.entry{display:flex;align-items:center;justify-content:space-between;gap:14px;border-top:1px solid var(--line);padding:15px 23px}.entry small{display:block;color:var(--muted);margin-top:4px}footer{padding-top:19px;padding-bottom:25px;color:var(--muted);font-size:14px}dialog{padding:25px;max-width:min(92vw,460px);border:1px solid var(--line);border-radius:15px;background:#fffdf8;color:var(--text)}dialog::backdrop{background:#10272580}dialog .actions{justify-content:flex-end}.empty{padding:0 23px 15px}.feedback{min-height:25px;margin:12px 0;color:var(--green)}[hidden]{display:none!important}@media(max-width:600px){header div,main,footer{padding-left:15px;padding-right:15px}main{padding-top:24px}.toolbar,.legend{padding-left:13px;padding-right:13px}header strong{font-size:21px}}
+.slot+.slot{margin-top:5px}.slot small{display:block;margin-top:4px}.times{display:flex;gap:12px;margin:0 0 18px}.times label{flex:1;min-width:0}.times input{display:block;margin-top:5px;width:100%;font:inherit;padding:8px;border:1px solid var(--line);border-radius:7px}.demo{display:flex;align-items:center;gap:8px;margin:0 0 15px;color:var(--muted);font-size:14px}.demo select{font:inherit;padding:6px;border:1px solid var(--line);border-radius:7px;background:#fffdf8;color:var(--green)}.error{color:#912f24;margin:0 0 12px}
+
+td{vertical-align:top;font-size:14px;overflow-wrap:anywhere}.mandible th,.mandible td{background:#edc9b8}.maxilla th,.maxilla td{background:#dceef9}.temple th,.temple td{background:#efeaf6}.block{display:block;background:#fffdf8;border-radius:7px;margin:2px 0 6px;padding:7px}.block time,.sub{display:block;color:#625e55;font-size:13px}.group th,.group td{background:#f4f0e8}.staff{padding:15px 23px}.error{padding:0 23px}h3{color:#0f3b3a}summary{cursor:pointer}.full{background:#f7ded6;color:#6b271c}.period{display:block;margin:6px 0}.room small{line-height:1.35}
+.book{width:100%;margin-top:8px;font-size:14px}.edit{font-size:13px;margin-top:5px}.therapist-picker{display:flex;align-items:center;gap:9px;flex-wrap:wrap;margin-bottom:15px}select,input{font:inherit;padding:8px;border:1px solid var(--line);border-radius:7px;background:#fffdf8;color:var(--text)}.fields{display:flex;gap:12px;flex-wrap:wrap;margin:10px 0 15px}.fields label{display:grid;gap:5px}dialog .actions{justify-content:flex-start}#feedback{margin:8px 22px 12px}#bookingError{padding:0}.danger{color:#912f24}</style><header><div><img alt="" src="data:image/png;base64,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"><strong>Cranioklinikken</strong><span>Status 21. november 2026</span></div></header>
+<main><h1>Arbeidstid</h1><p class="intro">Mandibula og Maxilla · Maks to samtidige reservasjoner, én i hvert rom.</p>
+<div class="therapist-picker"><label for="persona">Bruker</label><select id="persona"></select><button id="reset">Nullstill visningen</button></div>
+<form id="rentalTools" class="therapist-picker" hidden>
+<label for="tenant">Reserver for</label><select id="tenant"></select>
+<label for="tenantName">Ny leietaker</label><input id="tenantName" maxlength="60" required>
+<button type="submit">Legg til leietaker</button></form>
+<section class="panel"><div class="toolbar"><div><h2 id="week"></h2><p id="notice"></p></div><div class="actions"><button id="prev">Forrige uke</button><button id="next">Neste uke</button></div></div>
+<div class="scroller" tabindex="0"><table aria-label="Ukeplan"><thead id="head"></thead><tbody id="rows"></tbody></table></div>
+<p id="feedback" role="status"></p></section>
+<p><strong>Begge rom opptatt:</strong> Ingen ny arbeidstid kan reserveres i det tidsrommet.</p><p>Wix-arbeidstid vises samlet fra første start til siste slutt per dag. Åpne en arbeidstid for å se de faktiske intervallene.</p>
+
+<dialog id="booking" aria-labelledby="bookingTitle"><h2 id="bookingTitle"></h2><p id="bookingDate"></p>
+<form id="bookingForm"><div class="fields"><label>Fra<input type="time" id="start" step="60" required></label><label>Til<input type="time" id="end" step="60" required></label></div>
+<p id="bookingError" class="error" role="alert" hidden></p><div class="actions"><button class="primary" type="submit" id="save">Lagre</button><button type="button" id="remove" class="danger">Frigi tid</button><button type="button" id="closeBooking">Lukk</button></div></form></dialog>
+</main><footer>Forhåndsvisning med eksempeldata. Endringer lagres bare mens siden er åpen. Templet er kun til visning.</footer>
+<script type="application/json" id="data">{"staff": [["Terapeut 1", "demo-1"], ["Terapeut 2", "demo-2"], ["Eksempelleietaker", "mira-romleie"]], "hours": [["demo-1", "2026-11-24T13:00:00", "2026-11-24T14:30:00"], ["demo-2", "2026-11-24T13:00:00", "2026-11-24T15:00:00"]], "events": [["Eksempelarrangement", "Templet", "2026-11-26T16:00:00Z", "2026-11-26T18:00:00Z"]]}</script>
+<script>
+const $=id=>document.getElementById(id);
+const {staff,hours,events}=JSON.parse($('data').textContent);
+const firstName=name=>name.trim();
+const names=new Map(staff.map(([name,id])=>[id,firstName(name)]));
+const tineSchedule=staff.find(([name])=>name==='Terapeut 1')?.[1];
+const fixedRooms=new Map([[tineSchedule,'maxilla'],['mira-romleie','mandibula']]);
+const sortedStaff=[...staff].sort(([a],[b])=>a.localeCompare(b,'nb'));
+const fmt=new Intl.DateTimeFormat('nb-NO',{weekday:'short',day:'numeric',month:'short',timeZone:'UTC'});
+const tz={timeZone:'Europe/Oslo',year:'numeric',month:'2-digit',day:'2-digit'};
+const dayFmt=new Intl.DateTimeFormat('sv-SE',tz);
+const hourFmt=new Intl.DateTimeFormat('nb-NO',{timeZone:'Europe/Oslo',hour:'2-digit',minute:'2-digit'});
+const hoursFrom='2026-11-16',hoursUntil='2027-01-04';
+const shift=(iso,n)=>new Date(Date.parse(iso+'T12:00:00Z')+n*86400000).toISOString().slice(0,10);
+const escape=s=>String(s).replace(/[&<>"']/g,x=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[x]));
+let monday='2026-11-23';
+const assignments=new Map();
+for(const [id,from,to] of hours){
+ const date=from.slice(0,10);
+ const shifts=assignments.get(date)??[];
+ shifts.push({id,start:from.slice(11,16),end:to.slice(11,16)});
+ assignments.set(date,shifts);
+}
+const overlaps=(a,b)=>a.start<b.end&&b.start<a.end;
+for(const shifts of assignments.values()){
+ shifts.sort((a,b)=>Number(fixedRooms.has(b.id))-Number(fixedRooms.has(a.id))||a.start.localeCompare(b.start));
+ for(const first of shifts){
+  if(first.room)continue;
+  first.room=fixedRooms.get(first.id)??'mandibula';
+  const queue=[first];
+  for(const current of queue){
+   for(const other of shifts){
+    if(current.id===other.id||!overlaps(current,other)||other.room)continue;
+    other.room=fixedRooms.get(other.id)??(current.room==='mandibula'?'maxilla':'mandibula');
+    queue.push(other);
+   }
+  }
+ }
+ for(const current of shifts){
+  current.conflict=shifts.some(other=>current.id!==other.id&&current.room===other.room&&overlaps(current,other));
+ }
+}
+let original=new Map([...assignments].map(([day,items])=>[day,items.map(x=>({...x}))]));
+const roomNames={mandibula:'Mandibula',maxilla:'Maxilla'};
+const rentalManagers=new Map([['demo-manager-1','Romansvarlig 1'],['demo-manager-2','Romansvarlig 2']]);
+const tenants=new Map([['mira-romleie','Eksempelleietaker']]);
+const managesRentals=()=>rentalManagers.has($('persona').value);
+const currentPerson=()=>managesRentals()?$('tenant').value:$('persona').value;
+function addOption(select,name,id){
+ const option=document.createElement('option');
+ option.value=id;
+ option.textContent=name;
+ select.append(option);
+}
+function updateTenants(selected){
+ $('tenant').replaceChildren();
+ for(const [id,name] of tenants)addOption($('tenant'),name,id);
+ $('tenant').value=selected??tenants.keys().next().value;
+}
+for(const [id,name] of rentalManagers)addOption($('persona'),name+' · romleie',id);
+updateTenants();
+for(const [name,id] of sortedStaff){
+ if(id==='mira-romleie')continue;
+ const option=document.createElement('option');
+ option.value=id;
+ option.textContent=firstName(name);
+ $('persona').append(option);
+}
+$('persona').value=tineSchedule;
+const allowedRoom=room=>Object.hasOwn(roomNames,room)&&(!managesRentals()||!fixedRooms.has(currentPerson())||fixedRooms.get(currentPerson())===room);
+const withinDates=day=>day>=hoursFrom&&day<hoursUntil;
+function action(label,day,room,index=''){
+ return '<button class="'+(index===''?'book':'edit')+'" data-day="'+day+'" data-room="'+room+'" data-index="'+index+'">'+label+'</button>';
+}
+function work(day,room){
+ if(day<hoursFrom||day>=hoursUntil)return '<span class="sub">Utenfor utsnitt</span>';
+ const byPerson=new Map();
+ for(const item of assignments.get(day)??[]){
+  if(item.room!==room)continue;
+  const items=byPerson.get(item.id)??[];
+  items.push(item);
+  byPerson.set(item.id,items);
+ }
+ const cards=[...byPerson].map(([id,items])=>{
+  items.sort((a,b)=>a.start.localeCompare(b.start));
+  const start=items[0].start,end=items.map(x=>x.end).sort().at(-1);
+  const name=tenants.has(id)?escape(tenants.get(id))+' · romleie':escape(names.get(id)??'Uidentifisert timeplan');
+  const conflict=items.some(x=>x.conflict);
+  const label=name+'<time>'+start+'–'+end+'</time>'+(conflict?'<strong>Romkonflikt</strong>':'');
+  const cls=conflict?'block full':'block';
+  const own=id===currentPerson();
+  const button=item=>own?action(item.locked?'Se sperret tid':'Endre / frigi',day,room,assignments.get(day).indexOf(item)):'';
+  if(items.length===1)return '<span class="'+cls+'">'+label+button(items[0])+'</span>';
+  return '<details class="'+cls+'"><summary>'+label+'</summary>'+items.map(item=>'<span class="period">'+item.start+'–'+item.end+' '+button(item)+'</span>').join('')+'</details>';
+ }).join('');
+ return (cards||'<span class="sub">Ingen arbeidstid</span>')+(allowedRoom(room)?action('Reserver tid',day,room):'');
+}
+
+function capacity(day){
+ if(day<hoursFrom||day>=hoursUntil)return '<span class="sub">Utenfor utsnitt</span>';
+ const shifts=assignments.get(day)??[];
+ const boundaries=[...new Set(shifts.flatMap(({start,end})=>[start,end]))].sort();
+ const periods=[];
+ for(let i=0;i<boundaries.length-1;i++){
+  const start=boundaries[i],end=boundaries[i+1];
+  const active=shifts.filter(x=>x.start<=start&&x.end>=end);
+  const conflict=['mandibula','maxilla'].some(room=>new Set(active.filter(x=>x.room===room).map(x=>x.id)).size>1);
+  const rooms=new Set(active.map(x=>x.room));
+  const label=conflict?'Romkonflikt · må avklares':rooms.size===2?'Fullt · ingen ny reservasjon':'';
+  if(!label)continue;
+  const previous=periods.at(-1);
+  if(previous?.end===start&&previous.label===label)previous.end=end;
+  else periods.push({start,end,label});
+ }
+ return periods.map(({start,end,label})=>'<span class="block full"><time>'+start+'–'+end+'</time>'+label+'</span>').join('');
+}
+function temple(day){
+ return events.filter(([, ,start,end])=>day>=dayFmt.format(new Date(start))&&day<=dayFmt.format(new Date(end||start))).map(([title,,start,end])=>{
+  const first=dayFmt.format(new Date(start)),last=dayFmt.format(new Date(end||start));
+  const startTime=hourFmt.format(new Date(start));
+  const time=first===last?startTime+(end?'–'+hourFmt.format(new Date(end)):''):fmt.format(new Date(first))+' '+startTime+' – '+fmt.format(new Date(last))+' '+hourFmt.format(new Date(end));
+  return '<span class="block">'+escape(title)+'<time>'+time+'</time></span>';
+ }).join('');
+}
+function draw(){
+ const days=Array.from({length:7},(_,i)=>shift(monday,i));
+ $('week').textContent=fmt.format(new Date(days[0]))+' – '+fmt.format(new Date(days[6]));
+ $('notice').textContent='Velg et rom og reserver arbeidstid.';
+ $('head').innerHTML='<tr><th scope="col">Kalender</th>'+days.map(d=>'<th scope="col">'+fmt.format(new Date(d))+'</th>').join('')+'</tr>';
+ const row=(type,label,sub,fn)=>'<tr class="'+type+'"><th scope="row" class="room">'+label+'<small>'+sub+'</small></th>'+days.map(d=>'<td>'+fn(d)+'</td>').join('')+'</tr>';
+ $('rows').innerHTML=row('mandible','Mandibula','Ett rom',d=>work(d,'mandibula'))+row('maxilla','Maxilla','Ett rom',d=>work(d,'maxilla'))+row('group','Kapasitet','Begge rom samlet',capacity)+row('temple','Templet','Stillepunkt · kun visning',temple);
+}
+let selected;
+const bolker=[['08:00','12:30'],['12:45','17:15'],['17:30','22:00']];
+function validPeriod(candidate,others){
+ const {start,end,id,room}=candidate;
+ if(!start||!end||start>=end)return 'Velg et sluttidspunkt etter start.';
+ if(others.some(x=>overlaps(x,candidate)&&(x.room===room||x.id===id)))return 'Tiden overlapper en romreservasjon eller din egen arbeidstid.';
+ if(bolker.some(([a,b])=>start>=a&&end<=b))return '';
+ const bridge=bolker.slice(0,-1).some(([,b],i)=>{
+  const [a]=bolker[i+1];
+  return start===b&&end===a&&others.some(x=>x.id===id&&x.room===room&&x.end===b)&&others.some(x=>x.id===id&&x.room===room&&x.start===a);
+ });
+ return bridge?'':'Velg tid innenfor én bolk. Overgangen kan reserveres når du har arbeidstid på begge sider i samme rom.';
+}
+function freeDefault(shifts,id,room){
+ for(const [start,end] of bolker){
+  const bounds=[...new Set([start,...shifts.filter(x=>x.end>start&&x.end<end).map(x=>x.end)])].sort();
+  for(const a of bounds){
+   const b=shifts.filter(x=>(x.room===room||x.id===id)&&x.start>a&&x.start<end).map(x=>x.start).sort()[0]??end;
+   if(!validPeriod({start:a,end:b,id,room},shifts))return [a,b];
+  }
+ }
+ return ['',''];
+}
+$('rows').addEventListener('click',event=>{
+ const button=event.target.closest('button[data-day]');
+ if(!button)return;
+ const {day,room,index}=button.dataset;
+ if(!withinDates(day)||!allowedRoom(room))return;
+ const shifts=assignments.get(day)??[];
+ const item=index===''?undefined:shifts[Number(index)];
+ if(item&&item.id!==currentPerson())return;
+ selected={day,room,item,id:currentPerson()};
+ $('bookingTitle').textContent=item?'Arbeidstid i '+roomNames[room]:'Reserver '+roomNames[room];
+ $('bookingDate').textContent=fmt.format(new Date(day))+(managesRentals()?' · '+tenants.get(currentPerson()):'');
+ const [start,end]=item?[item.start,item.end]:freeDefault(shifts,currentPerson(),room);
+ $('start').value=start;
+ $('end').value=end;
+ $('start').disabled=$('end').disabled=$('save').disabled=Boolean(item?.locked);
+ $('remove').hidden=!item||Boolean(item.locked);
+ $('bookingError').hidden=!item?.locked;
+ $('bookingError').textContent=item?.locked?'En klienttime er booket i denne perioden.':'';
+ $('booking').showModal();
+});
+$('closeBooking').onclick=()=>$('booking').close();
+function finish(message){
+ $('booking').close();
+ draw();
+ $('feedback').textContent=message;
+}
+$('bookingForm').onsubmit=event=>{
+ event.preventDefault();
+ const {day,room,item,id}=selected;
+ if(item?.locked||id!==currentPerson())return;
+ const shifts=assignments.get(day)??[];
+ const next={id,room,start:$('start').value,end:$('end').value};
+ const error=validPeriod(next,shifts.filter(x=>x!==item));
+ if(error){
+  $('bookingError').textContent=error;
+  $('bookingError').hidden=false;
+  return;
+ }
+ assignments.set(day,[...shifts.filter(x=>x!==item),next]);
+ finish(item?'Arbeidstiden er endret i forhåndsvisningen.':'Arbeidstiden er reservert i forhåndsvisningen.');
+};
+$('remove').onclick=()=>{
+ const {day,item,id}=selected;
+ if(!item||item.locked||id!==currentPerson())return;
+ assignments.set(day,assignments.get(day).filter(x=>x!==item));
+ finish('Arbeidstiden er frigitt i forhåndsvisningen.');
+};
+$('persona').onchange=()=>{
+ $('rentalTools').hidden=!managesRentals();
+ $('feedback').textContent='';
+ draw();
+};
+$('tenant').onchange=draw;
+$('rentalTools').onsubmit=event=>{
+ event.preventDefault();
+ if(!managesRentals())return;
+ const name=$('tenantName').value.trim().replace(/\s+/g,' ');
+ if(!name)return;
+ const existing=[...tenants].find(([,tenant])=>tenant.toLocaleLowerCase('nb')===name.toLocaleLowerCase('nb'));
+ const id=existing?.[0]??'romleie-'+crypto.randomUUID();
+ tenants.set(id,existing?.[1]??name);
+ updateTenants(id);
+ $('tenantName').value='';
+ $('feedback').textContent=(existing?'Valgt leietaker: ':'Leietaker lagt til: ')+tenants.get(id);
+ draw();
+};
+$('reset').onclick=()=>{
+ for(const id of tenants.keys())if(id!=='mira-romleie')tenants.delete(id);
+ updateTenants();
+ assignments.clear();
+ for(const [day,items] of original)assignments.set(day,items.map(x=>({...x})));
+ $('feedback').textContent='Visningen er nullstilt.';
+ draw();
+};
+$('prev').onclick=()=>{monday=shift(monday,-7);draw()};
+$('next').onclick=()=>{monday=shift(monday,7);draw()};
+draw();
+</script></html>
