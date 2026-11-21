@@ -10,12 +10,21 @@
 <main><h1>Arbeidstid</h1>
 <form id="login">
 <label for="email">E-postadresse</label><input id="email" type="email" autocomplete="email" required>
-<div id="codeField" hidden><label for="code">Kode fra e-post</label><input id="code" inputmode="numeric" autocomplete="one-time-code" pattern="[0-9]{6,10}" disabled required></div>
-<button type="submit" id="loginButton">Send kode</button>
-<button type="button" id="changeEmail" hidden>Bytt e-post</button>
+<button type="submit" id="loginButton">Send innloggingslenke</button>
+<button type="button" id="finishLogin" hidden>Fullfør innlogging</button>
 </form>
 <p id="status" role="status" aria-live="polite"></p>
 <section id="calendar" hidden>
+<section id="memberAdmin" hidden>
+<h3>Administrer brukere</h3>
+<form id="memberForm">
+<label for="memberName">Navn</label><input id="memberName" maxlength="60" required>
+<label for="memberEmail">E-postadresse</label><input id="memberEmail" type="email" maxlength="254" required>
+<label for="memberRole">Rolle</label><select id="memberRole"><option value="therapist">Terapeut</option><option value="rental-manager">Romansvarlig</option></select>
+<button>Gi tilgang</button>
+</form>
+<p id="memberStatus" role="status"></p><ul id="members"></ul>
+</section>
 <h2 id="week"></h2>
 <div class="actions"><button id="prev">Forrige uke</button><button id="next">Neste uke</button><button id="logout">Logg ut</button></div>
 <form id="reservation" hidden>
@@ -58,13 +67,43 @@ async function api(body){
  const data=await response.json();
  return {status:response.status,data};
 }
-function codeStep(active){
- $('codeField').hidden=$('changeEmail').hidden=!active;
- $('code').disabled=!active;
- $('email').readOnly=active;
- $('loginButton').textContent=active?'Logg inn':'Send kode';
- if(!active)$('code').value='';
+const initialUrl=new URL(window.location.href);
+let loginToken=initialUrl.searchParams.get('token_hash');
+if(loginToken){
+ initialUrl.searchParams.delete('token_hash');
+ history.replaceState(null,'',initialUrl.pathname+initialUrl.search+initialUrl.hash);
+ $('finishLogin').hidden=false;
 }
+async function memberAction(input,button){
+ button.disabled=true;
+ try{
+  const {status,data}=await api(input);
+  $('memberStatus').textContent=status===200?'Tilgangen er oppdatert.':data.error??'Kunne ikke oppdatere tilgang.';
+  if(status===200){
+   if(input.action==='add-member')$('memberForm').reset();
+   await load();
+  }
+ }catch{$('memberStatus').textContent='Kunne ikke oppdatere tilgang.';}
+ finally{button.disabled=false;}
+}
+function renderMembers(members){
+ $('memberAdmin').hidden=!Array.isArray(members);
+ $('members').replaceChildren(...(members??[]).map(member=>{
+  const li=document.createElement('li');
+  const remove=document.createElement('button');
+  remove.textContent='Fjern tilgang';
+  remove.onclick=()=>{
+   if(window.confirm('Fjerne tilgangen for '+member.name+'?'))memberAction({action:'remove-member',email:member.email},remove);
+  };
+  li.append(document.createTextNode(member.name+' · '+member.email+' '),remove);
+  return li;
+ }));
+}
+$('memberForm').onsubmit=event=>{
+ event.preventDefault();
+ memberAction({action:'add-member',name:$('memberName').value,email:$('memberEmail').value,role:$('memberRole').value},event.submitter);
+};
+
 const roomLabels={mandibula:'Mandibula',maxilla:'Maxilla'};
 function roomControl(hour,canAssign){
  const group=document.createElement('div');
@@ -200,6 +239,7 @@ async function load(){
   $('calendar').hidden=$('temple').hidden=status!==200;
   $('status').textContent=status===401?'':data.error??'';
   if(status===200){
+   renderMembers(data.members);
    const day=$('reservationDate');
    day.min=week;
    day.max=shift(week,6);
@@ -223,23 +263,26 @@ async function load(){
 }
 $('login').onsubmit=async event=>{
  event.preventDefault();
- const verify=!$('codeField').hidden;
- $('loginButton').disabled=$('changeEmail').disabled=true;
+ $('loginButton').disabled=true;
  try{
-  const {status,data}=await api({action:verify?'verify-code':'request-code',email:$('email').value,code:$('code').value});
+  const {data}=await api({action:'request-link',email:$('email').value});
   $('status').textContent=data.error??data.message??'';
-  if(status!==200)return;
-  if(!verify){
-   codeStep(true);
-   $('code').focus();
-  }else{
-   codeStep(false);
-   await load();
-  }
  }catch{$('status').textContent='Innloggingen er midlertidig utilgjengelig.';}
- finally{$('loginButton').disabled=$('changeEmail').disabled=false;}
+ finally{$('loginButton').disabled=false;}
 };
-$('changeEmail').onclick=()=>{codeStep(false);$('status').textContent='';$('email').focus();};
+$('finishLogin').onclick=async()=>{
+ $('finishLogin').disabled=true;
+ try{
+  const {status,data}=await api({action:'verify-link',tokenHash:loginToken});
+  $('status').textContent=data.error??'';
+  if(status===200||status===401){
+   loginToken=null;
+   $('finishLogin').hidden=true;
+  }
+  if(status===200)await load();
+ }catch{$('status').textContent='Innloggingen er midlertidig utilgjengelig.';}
+ finally{$('finishLogin').disabled=false;}
+};
 $('reservation').onsubmit=async event=>{
  event.preventDefault();
  const input={action:'reserve-room',week,room:$('room').value,date:$('reservationDate').value,from:$('from').value,to:$('to').value};
@@ -290,6 +333,7 @@ $('logout').onclick=async()=>{
   if(status!==200)throw new Error();
   $('days').replaceChildren();
   $('templeDays').replaceChildren();
+  renderMembers();
   renderIssues();
   await load();
  }catch{$('status').textContent='Kunne ikke logge ut. Prøv igjen.';}
