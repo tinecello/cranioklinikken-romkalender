@@ -20,7 +20,7 @@ function emailKey(value) {
 }
 
 function settings() {
-  const { SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY, WIX_API_KEY, WIX_SITE_ID, STILLEPUNKT_WIX_SITE_ID, CALENDAR_USERS } = process.env;
+  const { SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY, SUPABASE_SECRET_KEY, WIX_API_KEY, WIX_SITE_ID, STILLEPUNKT_WIX_SITE_ID, CALENDAR_USERS } = process.env;
   if (!SUPABASE_URL || !SUPABASE_PUBLISHABLE_KEY || !WIX_API_KEY || !WIX_SITE_ID || !CALENDAR_USERS) {
     throw new Error('Calendar configuration incomplete');
   }
@@ -29,7 +29,7 @@ function settings() {
     throw new Error('Invalid authentication origin');
   }
   const users = new Map(Object.entries(JSON.parse(CALENDAR_USERS)).map(([email, role]) => [emailKey(email), role]));
-  return { authOrigin: authOrigin.origin, authKey: SUPABASE_PUBLISHABLE_KEY, wixKey: WIX_API_KEY, siteId: WIX_SITE_ID, templeSiteId: STILLEPUNKT_WIX_SITE_ID, users };
+  return { authOrigin: authOrigin.origin, authKey: SUPABASE_PUBLISHABLE_KEY, databaseKey: SUPABASE_SECRET_KEY, wixKey: WIX_API_KEY, siteId: WIX_SITE_ID, templeSiteId: STILLEPUNKT_WIX_SITE_ID, users };
 }
 
 function roleFor(config, email) {
@@ -120,7 +120,7 @@ async function readWeek(config, monday) {
       issues.push({ type: 'unknown', start, end });
       continue;
     }
-    const row = { name, start, end };
+    const row = { id: event.id, name, start, end };
     hours.push(row);
     const periods = perSchedule.get(event.scheduleId) ?? [];
     periods.push(row);
@@ -171,13 +171,77 @@ async function readTemple(config, monday) {
   return events.sort((a, b) => Date.parse(a.start) - Date.parse(b.start));
 }
 
+async function signedInRole(config, request) {
+  const cookie = request.headers.get('Cookie')?.split(';').map(part => part.trim()).find(part => part.startsWith(sessionCookie + '='));
+  if (!cookie) return null;
+  const res = await authRequest(config, 'user', { token: cookie.slice(sessionCookie.length + 1) });
+  return res.ok ? roleFor(config, (await res.json()).email) : null;
+}
+
+function databaseRequest(config, query, row) {
+  const headers = { apikey: config.databaseKey };
+  if (row) {
+    headers['Content-Type'] = 'application/json';
+    headers.Prefer = 'resolution=merge-duplicates,return=minimal';
+  }
+  return fetch(config.authOrigin + '/rest/v1/room_assignments?' + query, {
+    method: row ? 'POST' : 'GET',
+    headers,
+    body: row ? JSON.stringify(row) : undefined,
+    redirect: 'error',
+    signal: AbortSignal.timeout(8000),
+  });
+}
+
+async function readRooms(config, monday, hours) {
+  if (!config.databaseKey) return false;
+  const end = new Date(Date.parse(monday + 'T00:00:00Z') + 7 * 86400000).toISOString().slice(0, 10);
+  const query = new URLSearchParams({
+    select: 'wix_event_id,room,starts_at,ends_at',
+    starts_at: 'lt.' + end + 'T00:00:00',
+    ends_at: 'gt.' + monday + 'T00:00:00',
+  });
+  const res = await databaseRequest(config, query);
+  if (!res.ok) throw new Error('Room assignments unavailable');
+  const rooms = new Map((await res.json()).map(row => [row.wix_event_id, row]));
+  for (const hour of hours) {
+    const room = rooms.get(hour.id);
+    if (room?.starts_at.slice(0, 19) === hour.start.slice(0, 19) && room.ends_at.slice(0, 19) === hour.end.slice(0, 19)) {
+      hour.room = room.room;
+    }
+  }
+  return true;
+}
+
+async function assignRoom(config, request, input) {
+  if (await signedInRole(config, request) !== 'admin') return respond(403, { error: 'Kun administrator kan tildele rom.' });
+  if (!config.databaseKey) return respond(503, { error: 'Lagring av rom er ikke konfigurert.' });
+  if (typeof input.week !== 'string' || !['mandibula', 'maxilla'].includes(input.room) || typeof input.id !== 'string') {
+    return respond(400, { error: 'Velg en gyldig arbeidstid og et rom.' });
+  }
+  const week = await readWeek(config, input.week);
+  const hour = week?.hours.find(row => row.id === input.id && row.start === input.start && row.end === input.end);
+  if (!hour) return respond(409, { error: 'Arbeidstiden i Wix er endret. Last uken på nytt.' });
+  const res = await databaseRequest(config, 'on_conflict=wix_event_id', {
+    wix_event_id: hour.id,
+    room: input.room,
+    starts_at: hour.start,
+    ends_at: hour.end,
+  });
+  if (res.status === 409) return respond(409, { error: 'Rommet overlapper en lagret tildeling.' });
+  if (!res.ok) throw new Error('Room assignment failed');
+  return respond(200, {});
+}
+
 export default async function handler(request) {
   const url = new URL(request.url);
   if (!['GET', 'POST'].includes(request.method)) return respond(405, { error: 'Metoden støttes ikke.' });
   try {
     if (request.method === 'POST') {
       if (request.headers.get('Origin') !== url.origin) return respond(403, { error: 'Ugyldig forespørsel.' });
-      const { action, email, code } = await request.json();
+      const input = await request.json();
+      const { action, email, code } = input;
+      if (action === 'assign-room') return await assignRoom(settings(), request, input);
       if (action === 'logout') return respond(200, {}, { 'Set-Cookie': session('', 0) });
       if (!['request-code', 'verify-code'].includes(action)) return respond(400, { error: 'Ugyldig forespørsel.' });
       const config = settings();
@@ -200,18 +264,17 @@ export default async function handler(request) {
       return respond(200, {}, { 'Set-Cookie': session(data.access_token, Math.min(data.expires_in || 3600, 3600)) });
     }
 
-    const cookie = request.headers.get('Cookie')?.split(';').map(part => part.trim()).find(part => part.startsWith(sessionCookie + '='));
-    if (!cookie) return respond(401, { error: 'Logg inn for å se arbeidstid.' });
     const config = settings();
-    const res = await authRequest(config, 'user', { token: cookie.slice(sessionCookie.length + 1) });
-    const user = res.ok ? await res.json() : null;
-    const role = roleFor(config, user?.email);
+    const role = await signedInRole(config, request);
     if (!role) return respond(401, { error: 'Logg inn for å se arbeidstid.' }, { 'Set-Cookie': session('', 0) });
     const monday = url.searchParams.get('week') ?? '';
     const week = await readWeek(config, monday);
     if (!week) return respond(400, { error: 'Velg mandag i uken du vil vise.' });
-    const temple = await readTemple(config, monday).catch(() => null);
-    return respond(200, { role, hours: week.hours, temple, issues: role === 'admin' ? week.issues : [] });
+    const [temple, roomsEnabled] = await Promise.all([
+      readTemple(config, monday).catch(() => null),
+      readRooms(config, monday, week.hours).catch(() => false),
+    ]);
+    return respond(200, { role, hours: week.hours, temple, roomsEnabled, issues: role === 'admin' ? week.issues : [] });
   } catch {
     return respond(503, { error: 'Kalenderen er midlertidig utilgjengelig.' });
   }
