@@ -1,4 +1,5 @@
 const staffPath = '/bookings/v1/staff-members/query';
+const templePath = '/events/v3/events/query';
 const hoursPath = '/calendar/v3/events/query';
 const wixOrigin = 'https://www.wixapis.com';
 const sessionCookie = 'cranio_calendar_session';
@@ -19,7 +20,7 @@ function emailKey(value) {
 }
 
 function settings() {
-  const { SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY, WIX_API_KEY, WIX_SITE_ID, CALENDAR_USERS } = process.env;
+  const { SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY, WIX_API_KEY, WIX_SITE_ID, STILLEPUNKT_WIX_SITE_ID, CALENDAR_USERS } = process.env;
   if (!SUPABASE_URL || !SUPABASE_PUBLISHABLE_KEY || !WIX_API_KEY || !WIX_SITE_ID || !CALENDAR_USERS) {
     throw new Error('Calendar configuration incomplete');
   }
@@ -28,7 +29,7 @@ function settings() {
     throw new Error('Invalid authentication origin');
   }
   const users = new Map(Object.entries(JSON.parse(CALENDAR_USERS)).map(([email, role]) => [emailKey(email), role]));
-  return { authOrigin: authOrigin.origin, authKey: SUPABASE_PUBLISHABLE_KEY, wixKey: WIX_API_KEY, siteId: WIX_SITE_ID, users };
+  return { authOrigin: authOrigin.origin, authKey: SUPABASE_PUBLISHABLE_KEY, wixKey: WIX_API_KEY, siteId: WIX_SITE_ID, templeSiteId: STILLEPUNKT_WIX_SITE_ID, users };
 }
 
 function roleFor(config, email) {
@@ -108,6 +109,38 @@ async function readWeek(config, monday) {
   });
 }
 
+async function readTemple(config, monday) {
+  if (!config.templeSiteId) return null;
+  const start = Date.parse(monday + 'T00:00:00Z');
+  // Query slightly wider UTC bounds, then use Oslo dates for the calendar display.
+  const lower = new Date(start - 86400000).toISOString();
+  const upper = new Date(start + 8 * 86400000).toISOString();
+  const limit = 50;
+  const events = [];
+  for (let offset = 0; ; offset += limit) {
+    const page = await wixRequest({ ...config, siteId: config.templeSiteId }, templePath, {
+      query: {
+        filter: {
+          $and: [
+            { 'dateAndTimeSettings.startDate': { $lt: upper } },
+            { 'dateAndTimeSettings.endDate': { $gte: lower } },
+          ],
+        },
+        paging: { limit, offset },
+      },
+    });
+    if (!Array.isArray(page.events)) throw new Error('Unexpected Stillepunkt response');
+    for (const event of page.events) {
+      const { startDate: start, endDate: end, dateAndTimeTbd } = event.dateAndTimeSettings ?? {};
+      if (event.status === 'CANCELED' || event.status === 'CANCELLED' || dateAndTimeTbd || !event.title) continue;
+      if (!Number.isFinite(Date.parse(start)) || !Number.isFinite(Date.parse(end)) || Date.parse(end) <= Date.parse(start)) continue;
+      events.push({ title: event.title, start, end });
+    }
+    if (page.events.length < limit || offset + limit >= page.pagingMetadata?.total) break;
+  }
+  return events.sort((a, b) => Date.parse(a.start) - Date.parse(b.start));
+}
+
 export default async function handler(request) {
   const url = new URL(request.url);
   if (!['GET', 'POST'].includes(request.method)) return respond(405, { error: 'Metoden støttes ikke.' });
@@ -144,9 +177,11 @@ export default async function handler(request) {
     const user = res.ok ? await res.json() : null;
     const role = roleFor(config, user?.email);
     if (!role) return respond(401, { error: 'Logg inn for å se arbeidstid.' }, { 'Set-Cookie': session('', 0) });
-    const hours = await readWeek(config, url.searchParams.get('week') ?? '');
+    const monday = url.searchParams.get('week') ?? '';
+    const hours = await readWeek(config, monday);
     if (!hours) return respond(400, { error: 'Velg mandag i uken du vil vise.' });
-    return respond(200, { role, hours });
+    const temple = await readTemple(config, monday).catch(() => null);
+    return respond(200, { role, hours, temple });
   } catch {
     return respond(503, { error: 'Kalenderen er midlertidig utilgjengelig.' });
   }
