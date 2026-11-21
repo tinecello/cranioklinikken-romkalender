@@ -29,8 +29,7 @@ registrering. Konfigurer e-postlevering og bruk kodevariabelen
 `{{ .Token }}` i malen for innlogging. Innloggingen oppretter ingen nye
 kontoer. Kalenderen leser bare arbeidstider til Wix-profiler som samsvarer
 med en aktiv administrator- eller terapeutadresse. Rollene returneres
-etter innlogging. Templet viser tittel og tidspunkt fra Stillepunkt. Redigering,
-romleieadministrasjon og opprettelse av brukere er foreløpig ikke koblet til.
+etter innlogging. Templet viser tittel og tidspunkt fra Stillepunkt. Redigering av arbeidstid og opprettelse av brukere er foreløpig ikke koblet til.
 
 Før produksjon må romreservasjoner lagres transaksjonelt med validering
 av rom og tid. Wix-arbeidstid skal synkroniseres server-side, med
@@ -44,10 +43,15 @@ En tildeling som ikke lenger stemmer med Wix-perioden vises som ufordelt.
 En gammel tildeling kan fortsatt blokkere et rom inntil den er oppdatert
 eller ryddet bort av en databaseadministrator.
 
-Ny arbeidstid kan reserveres av innloggede terapeuter når begge migreringer
+Ny arbeidstid kan reserveres av innloggede terapeuter når migreringene
 er kjørt og `ENABLE_WIX_WRITES=true` er satt. Hold funksjonen av i produksjon
 inntil endepunktet er testet med en separat Wix-testplan. Wix-nøkkelen trenger
 skrivetilgang til kalenderen. Supabase låser rom og terapeut før Wix-kallet.
 Ved uklart svar beholdes reservasjonen i status «Avventer Wix». Ved å sende
 inn samme reservasjon i samme nettleserfane brukes den samme forespørsels-ID-en.
 Redigering, sletting og romleie kan ikke gjøres gjennom dette endepunktet.
+
+Romansvarlige og administrator kan legge til leietakere, reservere, endre
+og frigi romleie. Romleie lagres bare i romkalenderen og omfattes av samme
+romsperre som arbeidstid. Rollen for Kjetil og Daniella er `rental-manager`.
+Miras eksisterende romleie må legges inn i databasen ved oppstart.
