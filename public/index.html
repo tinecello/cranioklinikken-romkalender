@@ -43,7 +43,37 @@ function codeStep(active){
  $('loginButton').textContent=active?'Logg inn':'Send kode';
  if(!active)$('code').value='';
 }
-function render(hours){
+const roomLabels={mandibula:'Mandibula',maxilla:'Maxilla'};
+function roomControl(hour,canAssign){
+ const group=document.createElement('div');
+ if(!canAssign){
+  group.textContent=roomLabels[hour.room]??'Rom ikke tildelt';
+  return group;
+ }
+ const select=document.createElement('select');
+ select.setAttribute('aria-label','Rom for '+hour.name+' kl. '+hour.start.slice(11,16));
+ const placeholder=new Option('Velg rom','',false,!hour.room);
+ placeholder.disabled=true;
+ select.append(placeholder,...Object.entries(roomLabels).map(([room,name])=>new Option(name,room,false,hour.room===room)));
+ select.onchange=async()=>{
+  select.disabled=true;
+  try{
+   const {status,data}=await api({action:'assign-room',week,id:hour.id,start:hour.start,end:hour.end,room:select.value});
+   if(status!==200){
+    $('status').textContent=data.error??'Kunne ikke lagre rom.';
+    select.value=hour.room??'';
+    return;
+   }
+   await load();
+  }catch{
+   $('status').textContent='Kunne ikke lagre rom. Last uken på nytt.';
+   select.value=hour.room??'';
+  }finally{select.disabled=false;}
+ };
+ group.append(select);
+ return group;
+}
+function render(hours,canAssign){
  const days=Array.from({length:7},(_,i)=>shift(week,i));
  $('week').textContent=label.format(new Date(days[0]))+' – '+label.format(new Date(days[6]));
  $('days').replaceChildren(...days.map(day=>{
@@ -52,10 +82,11 @@ function render(hours){
   title.textContent=label.format(new Date(day));
   panel.append(title);
   const rows=hours.filter(x=>x.start.startsWith(day)).sort((a,b)=>a.start.localeCompare(b.start));
-  for(const {name,start,end} of rows){
+  for(const hour of rows){
+   const {name,start,end}=hour;
    const row=document.createElement('p');
    row.textContent=name+' '+start.slice(11,16)+'–'+end.slice(11,16);
-   panel.append(row);
+   panel.append(row,roomControl(hour,canAssign&&Boolean(hour.id)));
   }
   return panel;
  }));
@@ -116,7 +147,7 @@ async function load(){
   $('login').hidden=status===200;
   $('calendar').hidden=$('temple').hidden=status!==200;
   $('status').textContent=status===401?'':data.error??'';
-  if(status===200){render(data.hours);renderIssues(data.issues);renderTemple(data.temple);}
+  if(status===200){render(data.hours,data.roomsEnabled&&data.role==='admin');renderIssues(data.issues);renderTemple(data.temple);}
  }catch{
   if(request===revision)$('status').textContent='Kalenderen er midlertidig utilgjengelig.';
  }
