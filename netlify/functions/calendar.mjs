@@ -120,7 +120,7 @@ async function readWeek(config, monday) {
       issues.push({ type: 'unknown', start, end });
       continue;
     }
-    const row = { id: event.id, name, start, end };
+    const row = { id: event.id, name, start, end, scheduleId: event.scheduleId };
     hours.push(row);
     const periods = perSchedule.get(event.scheduleId) ?? [];
     periods.push(row);
@@ -136,7 +136,7 @@ async function readWeek(config, monday) {
       if (!previous || row.end > previous.end) previous = row;
     }
   }
-  return { hours, issues };
+  return { hours, issues, staff };
 }
 
 async function readTemple(config, monday) {
@@ -171,21 +171,25 @@ async function readTemple(config, monday) {
   return events.sort((a, b) => Date.parse(a.start) - Date.parse(b.start));
 }
 
-async function signedInRole(config, request) {
+async function signedInUser(config, request) {
   const cookie = request.headers.get('Cookie')?.split(';').map(part => part.trim()).find(part => part.startsWith(sessionCookie + '='));
   if (!cookie) return null;
   const res = await authRequest(config, 'user', { token: cookie.slice(sessionCookie.length + 1) });
-  return res.ok ? roleFor(config, (await res.json()).email) : null;
+  if (!res.ok) return null;
+  const email = emailKey((await res.json()).email);
+  const role = roleFor(config, email);
+  return role ? { email, role } : null;
 }
 
-function databaseRequest(config, query, row) {
+function databaseRequest(config, query, row, method = row ? 'POST' : 'GET') {
   const headers = { apikey: config.databaseKey };
   if (row) {
     headers['Content-Type'] = 'application/json';
-    headers.Prefer = 'resolution=merge-duplicates,return=minimal';
+    headers.Prefer = method === 'PATCH' ? 'return=representation' :
+      query === 'on_conflict=wix_event_id' ? 'resolution=merge-duplicates,return=minimal' : 'return=minimal';
   }
   return fetch(config.authOrigin + '/rest/v1/room_assignments?' + query, {
-    method: row ? 'POST' : 'GET',
+    method,
     headers,
     body: row ? JSON.stringify(row) : undefined,
     redirect: 'error',
@@ -203,18 +207,19 @@ async function readRooms(config, monday, hours) {
   });
   const res = await databaseRequest(config, query);
   if (!res.ok) throw new Error('Room assignments unavailable');
-  const rooms = new Map((await res.json()).map(row => [row.wix_event_id, row]));
+  const rows = await res.json();
+  const rooms = new Map(rows.map(row => [row.wix_event_id, row]));
   for (const hour of hours) {
     const room = rooms.get(hour.id);
     if (room?.starts_at.slice(0, 19) === hour.start.slice(0, 19) && room.ends_at.slice(0, 19) === hour.end.slice(0, 19)) {
       hour.room = room.room;
     }
   }
-  return true;
+  return rows;
 }
 
 async function assignRoom(config, request, input) {
-  if (await signedInRole(config, request) !== 'admin') return respond(403, { error: 'Kun administrator kan tildele rom.' });
+  if ((await signedInUser(config, request))?.role !== 'admin') return respond(403, { error: 'Kun administrator kan tildele rom.' });
   if (!config.databaseKey) return respond(503, { error: 'Lagring av rom er ikke konfigurert.' });
   if (typeof input.week !== 'string' || !['mandibula', 'maxilla'].includes(input.room) || typeof input.id !== 'string') {
     return respond(400, { error: 'Velg en gyldig arbeidstid og et rom.' });
@@ -233,6 +238,77 @@ async function assignRoom(config, request, input) {
   return respond(200, {});
 }
 
+const workBlocks = [['08:00', '12:30'], ['12:45', '17:15'], ['17:30', '22:00']];
+const overlaps = (a, b) => a.start < b.end && b.start < a.end;
+
+async function reserveRoom(config, request, input) {
+  const user = await signedInUser(config, request);
+  if (!user || !['admin', 'therapist'].includes(user.role)) return respond(403, { error: 'Du kan bare reservere din egen arbeidstid.' });
+  if (!config.databaseKey || process.env.ENABLE_WIX_WRITES !== 'true') return respond(503, { error: 'Reservasjoner med Wix-synk er ikke aktivert.' });
+  const { id, week: monday, room, date, from, to } = input;
+  if (typeof id !== 'string' || !/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(id)
+      || typeof monday !== 'string' || typeof date !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(date)
+      || typeof from !== 'string' || typeof to !== 'string' || !/^([01]\d|2[0-3]):[0-5]\d$/.test(from)
+      || !/^([01]\d|2[0-3]):[0-5]\d$/.test(to) || from >= to || !['mandibula', 'maxilla'].includes(room)) {
+    return respond(400, { error: 'Velg en gyldig dato, tid og et rom.' });
+  }
+  const week = await readWeek(config, monday);
+  if (!week) return respond(400, { error: 'Velg en gyldig uke.' });
+  const days = Array.from({ length: 7 }, (_, i) => new Date(Date.parse(monday + 'T00:00:00Z') + i * 86400000).toISOString().slice(0, 10));
+  const now = new Intl.DateTimeFormat('sv-SE', { timeZone: 'Europe/Oslo', year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', second: '2-digit', hourCycle: 'h23' }).format(new Date()).replace(' ', 'T');
+  const period = { start: date + 'T' + from + ':00', end: date + 'T' + to + ':00' };
+  if (!days.includes(date) || period.start <= now) return respond(400, { error: 'Velg en fremtidig tid i den viste uken.' });
+  const staff = week.staff.filter(person => emailKey(person.email) === user.email && !person.resource?.usesDefaultWorkingHours);
+  const scheduleId = staff.length === 1 ? staff[0].resource?.eventsSchedule?.id : null;
+  if (!scheduleId) return respond(409, { error: 'Fant ingen entydig arbeidstidsplan for deg i Wix.' });
+
+  const stored = await databaseRequest(config, new URLSearchParams({ request_id: 'eq.' + id }));
+  if (!stored.ok) throw new Error('Reservation lookup failed');
+  const [existing] = await stored.json();
+  const pendingId = 'pending-' + id;
+  if (existing) {
+    if (existing.staff_schedule_id !== scheduleId || existing.room !== room
+        || existing.starts_at.slice(0, 19) !== period.start || existing.ends_at.slice(0, 19) !== period.end) {
+      return respond(409, { error: 'Denne forespørselen gjelder en annen reservasjon.' });
+    }
+    if (existing.wix_event_id !== pendingId) return respond(200, {});
+  } else {
+    await readRooms(config, monday, week.hours);
+    if (week.issues.some(issue => issue.type === 'unknown' && overlaps(issue, period))) {
+      return respond(409, { error: 'En uidentifisert arbeidstid i Wix må avklares først.' });
+    }
+    if (week.hours.some(hour => overlaps(hour, period) && (hour.scheduleId === scheduleId || !hour.room || hour.room === room))) {
+      return respond(409, { error: 'Tiden overlapper en arbeidstid i Wix. Eventuelle ufordelte tider må få et rom først.' });
+    }
+    const withinBlock = workBlocks.some(([start, end]) => from >= start && to <= end);
+    const bridge = workBlocks.slice(0, -1).some(([, end], i) => from === end && to === workBlocks[i + 1][0]
+      && week.hours.some(hour => hour.scheduleId === scheduleId && hour.room === room && hour.end === period.start)
+      && week.hours.some(hour => hour.scheduleId === scheduleId && hour.room === room && hour.start === period.end));
+    if (!withinBlock && !bridge) return respond(400, { error: 'Velg en tid innenfor en bolk eller mellom to av dine bolker i samme rom.' });
+    const hold = await databaseRequest(config, '', {
+      wix_event_id: pendingId, request_id: id, staff_schedule_id: scheduleId,
+      room, starts_at: period.start, ends_at: period.end,
+    });
+    if (hold.status === 409) return respond(409, { error: 'Rommet eller arbeidstiden er allerede reservert. Last inn uken på nytt, eller prøv samme reservasjon igjen.' });
+    if (!hold.ok) throw new Error('Reservation claim failed');
+  }
+
+  const created = await wixRequest(config, '/calendar/v3/events', {
+    idempotencyKey: id,
+    event: {
+      type: 'WORKING_HOURS', scheduleId,
+      start: { localDate: period.start }, end: { localDate: period.end },
+    },
+  }).catch(() => null);
+  if (!created?.event?.id) return respond(503, { error: 'Rommet er holdt av. Wix kunne ikke bekrefte arbeidstiden. Prøv samme reservasjon igjen.' });
+
+  const saved = await databaseRequest(config, new URLSearchParams({ request_id: 'eq.' + id }), { wix_event_id: created.event.id }, 'PATCH');
+  if (!saved.ok || (await saved.json()).length !== 1) {
+    return respond(503, { error: 'Wix mottok arbeidstiden. Prøv samme reservasjon igjen for å fullføre koblingen.' });
+  }
+  return respond(200, {});
+}
+
 export default async function handler(request) {
   const url = new URL(request.url);
   if (!['GET', 'POST'].includes(request.method)) return respond(405, { error: 'Metoden støttes ikke.' });
@@ -241,6 +317,7 @@ export default async function handler(request) {
       if (request.headers.get('Origin') !== url.origin) return respond(403, { error: 'Ugyldig forespørsel.' });
       const input = await request.json();
       const { action, email, code } = input;
+      if (action === 'reserve-room') return await reserveRoom(settings(), request, input);
       if (action === 'assign-room') return await assignRoom(settings(), request, input);
       if (action === 'logout') return respond(200, {}, { 'Set-Cookie': session('', 0) });
       if (!['request-code', 'verify-code'].includes(action)) return respond(400, { error: 'Ugyldig forespørsel.' });
@@ -265,16 +342,20 @@ export default async function handler(request) {
     }
 
     const config = settings();
-    const role = await signedInRole(config, request);
+    const role = (await signedInUser(config, request))?.role;
     if (!role) return respond(401, { error: 'Logg inn for å se arbeidstid.' }, { 'Set-Cookie': session('', 0) });
     const monday = url.searchParams.get('week') ?? '';
     const week = await readWeek(config, monday);
     if (!week) return respond(400, { error: 'Velg mandag i uken du vil vise.' });
-    const [temple, roomsEnabled] = await Promise.all([
+    const [temple, rooms] = await Promise.all([
       readTemple(config, monday).catch(() => null),
       readRooms(config, monday, week.hours).catch(() => false),
     ]);
-    return respond(200, { role, hours: week.hours, temple, roomsEnabled, issues: role === 'admin' ? week.issues : [] });
+    const hours = week.hours.map(({ scheduleId, ...hour }) => hour);
+    for (const room of rooms || []) {
+      if (room.wix_event_id.startsWith('pending-')) hours.push({ name: 'Avventer Wix', start: room.starts_at, end: room.ends_at, room: room.room });
+    }
+    return respond(200, { role, hours, temple, roomsEnabled: Boolean(rooms), reservationEnabled: Boolean(rooms) && process.env.ENABLE_WIX_WRITES === 'true' && ['admin', 'therapist'].includes(role), issues: role === 'admin' ? week.issues : [] });
   } catch {
     return respond(503, { error: 'Kalenderen er midlertidig utilgjengelig.' });
   }
