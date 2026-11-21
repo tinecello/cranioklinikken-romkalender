@@ -19,6 +19,7 @@
 <h2 id="week"></h2>
 <div class="actions"><button id="prev">Forrige uke</button><button id="next">Neste uke</button><button id="logout">Logg ut</button></div>
 <div class="days" id="days"></div>
+<details id="issues" hidden><summary id="issueSummary"></summary><ul id="issueList"></ul></details>
 </section><section id="temple" class="temple" hidden><h2>Templet</h2><p id="templeStatus" hidden></p><div class="days" id="templeDays"></div></section></main>
 <script>
 const $=id=>document.getElementById(id);
@@ -87,6 +88,26 @@ function renderTemple(events){
  });
  $('templeDays').replaceChildren(...panels);
 }
+function formatPeriod(start,end){
+ if(!start||!end)return 'Tidspunkt mangler';
+ const startLabel=label.format(new Date(start.slice(0,10)))+' '+start.slice(11,16);
+ const endLabel=start.slice(0,10)===end.slice(0,10)?end.slice(11,16):
+  label.format(new Date(end.slice(0,10)))+' '+end.slice(11,16);
+ return startLabel+'–'+endLabel;
+}
+function renderIssues(issues=[]){
+ $('issues').hidden=!issues.length;
+ $('issueSummary').textContent='Arbeidstid i Wix til gjennomgang ('+issues.length+')';
+ $('issueList').replaceChildren(...issues.map(issue=>{
+  const li=document.createElement('li');
+  const period=formatPeriod(issue.start,issue.end);
+  const prefix=issue.name?issue.name+': ':'';
+  if(issue.type==='overlap')li.textContent=prefix+period+' overlapper '+formatPeriod(issue.otherStart,issue.otherEnd)+'.';
+  else if(issue.type==='unknown')li.textContent=period+' · timeplan uten treff i terapeutlisten.';
+  else li.textContent=prefix+period+' · ugyldig arbeidstid.';
+  return li;
+ }));
+}
 async function load(){
  const request=++revision;
  try{
@@ -95,7 +116,7 @@ async function load(){
   $('login').hidden=status===200;
   $('calendar').hidden=$('temple').hidden=status!==200;
   $('status').textContent=status===401?'':data.error??'';
-  if(status===200){render(data.hours);renderTemple(data.temple);}
+  if(status===200){render(data.hours);renderIssues(data.issues);renderTemple(data.temple);}
  }catch{
   if(request===revision)$('status').textContent='Kalenderen er midlertidig utilgjengelig.';
  }
@@ -127,6 +148,7 @@ $('logout').onclick=async()=>{
   if(status!==200)throw new Error();
   $('days').replaceChildren();
   $('templeDays').replaceChildren();
+  renderIssues();
   await load();
  }catch{$('status').textContent='Kunne ikke logge ut. Prøv igjen.';}
 };
