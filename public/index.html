@@ -26,6 +26,20 @@
 <label for="to">Til</label><input id="to" type="time" required>
 <button id="reserve" type="submit">Reserver</button><p id="reservationStatus" role="status"></p>
 </form>
+<section id="rentals" hidden>
+<h3>Romleie</h3>
+<form id="tenantForm"><label for="tenantName">Ny leietaker</label><input id="tenantName" maxlength="60" required><button>Legg til</button></form>
+<form id="rentalForm">
+<label for="tenant">Leietaker</label><select id="tenant" required></select>
+<label for="rentalRoom">Rom</label><select id="rentalRoom"><option value="mandibula">Mandibula</option><option value="maxilla">Maxilla</option></select>
+<label for="rentalDate">Dato</label><input id="rentalDate" type="date" required>
+<label for="rentalFrom">Fra</label><input id="rentalFrom" type="time" required>
+<label for="rentalTo">Til</label><input id="rentalTo" type="time" required>
+<button id="saveRental">Reserver romleie</button>
+<button type="button" id="cancelRentalEdit" hidden>Avbryt redigering</button>
+</form>
+<p id="rentalStatus" role="status"></p>
+</section>
 <div class="days" id="days"></div>
 <details id="issues" hidden><summary id="issueSummary"></summary><ul id="issueList"></ul></details>
 </section><section id="temple" class="temple" hidden><h2>Templet</h2><p id="templeStatus" hidden></p><div class="days" id="templeDays"></div></section></main>
@@ -81,6 +95,35 @@ function roomControl(hour,canAssign){
  group.append(select);
  return group;
 }
+let editingRental=null;
+function clearRentalEdit(){
+ editingRental=null;
+ $('saveRental').textContent='Reserver romleie';
+ $('cancelRentalEdit').hidden=true;
+}
+function rentalControls(hour){
+ const group=document.createElement('div');
+ const edit=document.createElement('button');
+ edit.textContent='Endre';
+ edit.onclick=()=>{
+  editingRental=hour.rental.id;
+  $('tenant').value=hour.rental.tenantId;
+  $('rentalRoom').value=hour.room;
+  $('rentalDate').value=hour.start.slice(0,10);
+  $('rentalFrom').value=hour.start.slice(11,16);
+  $('rentalTo').value=hour.end.slice(11,16);
+  $('saveRental').textContent='Lagre endring';
+  $('cancelRentalEdit').hidden=false;
+  $('tenant').focus();
+ };
+ const release=document.createElement('button');
+ release.textContent='Frigi';
+ release.onclick=()=>{
+  if(window.confirm('Frigi denne romleien?'))rentalAction({action:'release-rental',id:hour.rental.id},release);
+ };
+ group.append(edit,release);
+ return group;
+}
 function render(hours,canAssign){
  const days=Array.from({length:7},(_,i)=>shift(week,i));
  $('week').textContent=label.format(new Date(days[0]))+' – '+label.format(new Date(days[6]));
@@ -95,6 +138,7 @@ function render(hours,canAssign){
    const row=document.createElement('p');
    row.textContent=name+' '+start.slice(11,16)+'–'+end.slice(11,16);
    panel.append(row,roomControl(hour,canAssign&&Boolean(hour.id)));
+   if(hour.rental)panel.append(rentalControls(hour));
   }
   return panel;
  }));
@@ -161,6 +205,17 @@ async function load(){
    day.max=shift(week,6);
    if(day.value<day.min||day.value>day.max)day.value=week;
    $('reservation').hidden=!data.reservationEnabled;
+   $('rentals').hidden=!Array.isArray(data.tenants);
+   if(Array.isArray(data.tenants)){
+    const tenant=$('tenant').value;
+    $('tenant').replaceChildren(...data.tenants.map(person=>new Option(person.name,person.id)));
+    if(data.tenants.some(person=>person.id===tenant))$('tenant').value=tenant;
+    $('saveRental').disabled=!data.tenants.length;
+    const date=$('rentalDate');
+    date.min=week;
+    date.max=shift(week,6);
+    if(date.value<date.min||date.value>date.max)date.value=week;
+   }
    render(data.hours,data.roomsEnabled&&data.role==='admin');renderIssues(data.issues);renderTemple(data.temple);}
  }catch{
   if(request===revision)$('status').textContent='Kalenderen er midlertidig utilgjengelig.';
@@ -202,8 +257,33 @@ $('reservation').onsubmit=async event=>{
  }catch{$('reservationStatus').textContent='Svaret kom ikke frem. Prøv samme reservasjon igjen.';}
  finally{$('reserve').disabled=false;}
 };
-$('prev').onclick=()=>{week=shift(week,-7);load();};
-$('next').onclick=()=>{week=shift(week,7);load();};
+async function rentalAction(input,button){
+ button.disabled=true;
+ try{
+  const {status,data}=await api(input);
+  $('rentalStatus').textContent=status===200?'Romleien er oppdatert.':data.error??'Kunne ikke lagre romleie.';
+  if(status!==200)return;
+  if(input.action==='add-tenant')$('tenantName').value='';
+  clearRentalEdit();
+  await load();
+ }catch{$('rentalStatus').textContent='Kunne ikke lagre. Last inn uken på nytt.';}
+ finally{button.disabled=false;}
+}
+$('tenantForm').onsubmit=event=>{
+ event.preventDefault();
+ rentalAction({action:'add-tenant',name:$('tenantName').value},event.submitter);
+};
+$('rentalForm').onsubmit=event=>{
+ event.preventDefault();
+ rentalAction({
+  action:editingRental?'update-rental':'reserve-rental',id:editingRental??crypto.randomUUID(),
+  week,tenantId:$('tenant').value,room:$('rentalRoom').value,date:$('rentalDate').value,
+  from:$('rentalFrom').value,to:$('rentalTo').value
+ },event.submitter);
+};
+$('cancelRentalEdit').onclick=clearRentalEdit;
+$('prev').onclick=()=>{clearRentalEdit();week=shift(week,-7);load();};
+$('next').onclick=()=>{clearRentalEdit();week=shift(week,7);load();};
 $('logout').onclick=async()=>{
  try{
   const {status}=await api({action:'logout'});
