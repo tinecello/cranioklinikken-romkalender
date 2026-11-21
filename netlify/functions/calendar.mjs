@@ -102,11 +102,41 @@ async function readWeek(config, monday) {
     if (!scheduleId || person.resource?.usesDefaultWorkingHours || !['admin', 'therapist'].includes(role)) return [];
     return [[scheduleId, person.name.trim().split(/\s+/)[0]]];
   }));
-  return events.flatMap(event => {
-    if (event.status === 'CANCELLED' || !bySchedule.has(event.scheduleId)) return [];
-    if (!event.start?.localDate || !event.end?.localDate) return [];
-    return [{ name: bySchedule.get(event.scheduleId), start: event.start.localDate, end: event.end.localDate }];
-  });
+  const knownSchedules = new Set(staff.map(person => person.resource?.eventsSchedule?.id).filter(Boolean));
+  const active = events.filter(event => !['CANCELLED', 'CANCELED'].includes(event.status));
+  const hours = [];
+  const issues = [];
+  const perSchedule = new Map();
+  for (const event of active) {
+    const start = event.start?.localDate;
+    const end = event.end?.localDate;
+    const name = bySchedule.get(event.scheduleId);
+    if (!name && knownSchedules.has(event.scheduleId)) continue;
+    if (!start || !end || start >= end) {
+      issues.push({ type: 'invalid', name, start, end });
+      continue;
+    }
+    if (!name) {
+      issues.push({ type: 'unknown', start, end });
+      continue;
+    }
+    const row = { name, start, end };
+    hours.push(row);
+    const periods = perSchedule.get(event.scheduleId) ?? [];
+    periods.push(row);
+    perSchedule.set(event.scheduleId, periods);
+  }
+  for (const periods of perSchedule.values()) {
+    periods.sort((a, b) => a.start.localeCompare(b.start));
+    let previous;
+    for (const row of periods) {
+      if (previous && row.start < previous.end) {
+        issues.push({ type: 'overlap', ...row, otherStart: previous.start, otherEnd: previous.end });
+      }
+      if (!previous || row.end > previous.end) previous = row;
+    }
+  }
+  return { hours, issues };
 }
 
 async function readTemple(config, monday) {
@@ -178,10 +208,10 @@ export default async function handler(request) {
     const role = roleFor(config, user?.email);
     if (!role) return respond(401, { error: 'Logg inn for å se arbeidstid.' }, { 'Set-Cookie': session('', 0) });
     const monday = url.searchParams.get('week') ?? '';
-    const hours = await readWeek(config, monday);
-    if (!hours) return respond(400, { error: 'Velg mandag i uken du vil vise.' });
+    const week = await readWeek(config, monday);
+    if (!week) return respond(400, { error: 'Velg mandag i uken du vil vise.' });
     const temple = await readTemple(config, monday).catch(() => null);
-    return respond(200, { role, hours, temple });
+    return respond(200, { role, hours: week.hours, temple, issues: role === 'admin' ? week.issues : [] });
   } catch {
     return respond(503, { error: 'Kalenderen er midlertidig utilgjengelig.' });
   }
