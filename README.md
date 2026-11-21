@@ -3,7 +3,7 @@
 `preview/` er den klikkbare prototypen med eksempeldata. Netlify-oppsettet
 bygger `public/` og Netlify Functions fra `netlify/functions/`.
 
-Dette arbeidet innfører e-postkode og en innlogget ukevisning av egendefinerte
+Dette arbeidet innfører innloggingslenke på e-post og en innlogget ukevisning av egendefinerte
 Wix-arbeidstider. Det er et utviklingstrinn før romreservasjoner og Wix-synk
 kan tas i bruk. Ukevisningen viser individuelt registrerte arbeidstider fra
 Wix. Administrator kan tildele Mandibula eller Maxilla til eksisterende Wix-perioder når Supabase-migreringen er kjørt og servernøkkelen er satt. Romtildelingen endrer ingen Wix-tider. Wix er fasit. Administrator
@@ -20,16 +20,24 @@ Sett disse variablene for Netlify Functions i et separat deploy-miljø:
 - `WIX_API_KEY`, en Wix-nøkkel med lesetilgang til terapeutprofiler og kalender.
 - `WIX_SITE_ID`, Vaajma-sidens Wix-ID.
 - `STILLEPUNKT_WIX_SITE_ID`, Stillepunkt-sidens Wix-ID. Nøkkelen må også ha lesetilgang til Wix Events der.
-- `CALENDAR_USERS`, et JSON-objekt med e-postadresser og roller.
-  Gyldige roller er `admin`, `therapist` og `rental-manager`.
-  Eksempel: `{"admin@example.com":"admin"}`.
+- `CALENDAR_ADMIN_EMAIL`, administratorens godkjente adresse.
 
-Legg inn de godkjente kontoene i Supabase Auth uten å aktivere åpen
-registrering. Konfigurer e-postlevering og bruk kodevariabelen
-`{{ .Token }}` i malen for innlogging. Innloggingen oppretter ingen nye
-kontoer. Kalenderen leser bare arbeidstider til Wix-profiler som samsvarer
+Kjør alle Supabase-migreringene. Konfigurer e-postlevering og bruk følgende lenke
+i både Confirm sign up og Magic link / OTP:
+
+```html
+<a href="{{ .SiteURL }}/?token_hash={{ .TokenHash }}">Åpne romkalenderen</a>
+```
+
+Administrator logger inn med adressen i `CALENDAR_ADMIN_EMAIL` og legger til
+godkjente e-postadresser under Administrer brukere. Å legge inn en adresse sender
+ingen e-post. Supabase oppretter kontoen ved første forespørsel for en godkjent
+adresse. Første gangs innlogging for en godkjent bruker kan kreve at e-postregistrering
+er aktivert i Supabase. Romkalenderen kontrollerer tilgang både før utsending og etter
+verifisering.
+Kalenderen leser bare arbeidstider til Wix-profiler som samsvarer
 med en aktiv administrator- eller terapeutadresse. Rollene returneres
-etter innlogging. Templet viser tittel og tidspunkt fra Stillepunkt. Redigering av arbeidstid og opprettelse av brukere er foreløpig ikke koblet til.
+etter innlogging. Templet viser tittel og tidspunkt fra Stillepunkt. Redigering av arbeidstid er foreløpig ikke koblet til.
 
 Før produksjon må romreservasjoner lagres transaksjonelt med validering
 av rom og tid. Wix-arbeidstid skal synkroniseres server-side, med
