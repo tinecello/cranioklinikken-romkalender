@@ -1,0 +1,105 @@
+<!doctype html>
+<html lang="nb">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Cranioklinikken · Arbeidstid</title>
+<style>
+*{box-sizing:border-box}body{margin:0;background:#f7f4ee;color:#24231f;font:16px system-ui,sans-serif}header{background:#fffdf8;border-bottom:1px solid #e2ddd3}header div,main{max-width:1080px;margin:auto;padding:18px 22px}header div{display:flex;align-items:center;gap:12px}header img{width:42px;height:42px;object-fit:contain}h1,h2,header strong{font-family:Georgia,serif;color:#0f3b3a}h1{font-size:42px;margin:12px 0 18px}h2{margin:0 0 10px}section,form{background:#fffdf8;border:1px solid #e2ddd3;border-radius:12px;padding:18px}form{max-width:430px}label,input{display:block}input,button{font:inherit;padding:9px;border:1px solid #b5c4bc;border-radius:8px}input{margin:5px 0 12px;width:100%}button{color:#fff;background:#0f3b3a;cursor:pointer}button:disabled{opacity:.5}button:focus-visible,input:focus-visible{outline:3px solid #c97f4e;outline-offset:2px}.actions{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:16px}.days{display:grid;grid-template-columns:repeat(auto-fit,minmax(135px,1fr));gap:8px}.days article{background:#f4f0e8;border-radius:8px;padding:10px}.days h3{margin:0 0 8px;font-size:1rem}.days p{margin:6px 0}[hidden]{display:none!important}
+</style></head>
+<body>
+<header><div><img alt="" src="data:image/png;base64,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"><strong>Cranioklinikken</strong></div></header>
+<main><h1>Arbeidstid</h1>
+<form id="login">
+<label for="email">E-postadresse</label><input id="email" type="email" autocomplete="email" required>
+<div id="codeField" hidden><label for="code">Kode fra e-post</label><input id="code" inputmode="numeric" autocomplete="one-time-code" pattern="[0-9]{6,10}" disabled required></div>
+<button type="submit" id="loginButton">Send kode</button>
+<button type="button" id="changeEmail" hidden>Bytt e-post</button>
+</form>
+<p id="status" role="status" aria-live="polite"></p>
+<section id="calendar" hidden>
+<h2 id="week"></h2>
+<div class="actions"><button id="prev">Forrige uke</button><button id="next">Neste uke</button><button id="logout">Logg ut</button></div>
+<div class="days" id="days"></div>
+</section></main>
+<script>
+const $=id=>document.getElementById(id);
+const dateFormat=new Intl.DateTimeFormat('sv-SE',{timeZone:'Europe/Oslo',year:'numeric',month:'2-digit',day:'2-digit'});
+const label=new Intl.DateTimeFormat('nb-NO',{weekday:'short',day:'numeric',month:'short',timeZone:'UTC'});
+const today=dateFormat.format(new Date());
+const shift=(day,n)=>new Date(Date.parse(day+'T12:00:00Z')+n*86400000).toISOString().slice(0,10);
+let week=shift(today,-((new Date(today).getUTCDay()+6)%7));
+let revision=0;
+async function api(body){
+ const response=await fetch('/api/calendar'+(body?'':'?week='+week),body?{
+  method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)
+ }:{});
+ const data=await response.json();
+ return {status:response.status,data};
+}
+function codeStep(active){
+ $('codeField').hidden=$('changeEmail').hidden=!active;
+ $('code').disabled=!active;
+ $('email').readOnly=active;
+ $('loginButton').textContent=active?'Logg inn':'Send kode';
+ if(!active)$('code').value='';
+}
+function render(hours){
+ const days=Array.from({length:7},(_,i)=>shift(week,i));
+ $('week').textContent=label.format(new Date(days[0]))+' – '+label.format(new Date(days[6]));
+ $('days').replaceChildren(...days.map(day=>{
+  const panel=document.createElement('article');
+  const title=document.createElement('h3');
+  title.textContent=label.format(new Date(day));
+  panel.append(title);
+  const rows=hours.filter(x=>x.start.startsWith(day)).sort((a,b)=>a.start.localeCompare(b.start));
+  for(const {name,start,end} of rows){
+   const row=document.createElement('p');
+   row.textContent=name+' '+start.slice(11,16)+'–'+end.slice(11,16);
+   panel.append(row);
+  }
+  return panel;
+ }));
+}
+async function load(){
+ const request=++revision;
+ try{
+  const {status,data}=await api();
+  if(request!==revision)return;
+  $('login').hidden=status===200;
+  $('calendar').hidden=status!==200;
+  $('status').textContent=status===401?'':data.error??'';
+  if(status===200)render(data.hours);
+ }catch{
+  if(request===revision)$('status').textContent='Kalenderen er midlertidig utilgjengelig.';
+ }
+}
+$('login').onsubmit=async event=>{
+ event.preventDefault();
+ const verify=!$('codeField').hidden;
+ $('loginButton').disabled=$('changeEmail').disabled=true;
+ try{
+  const {status,data}=await api({action:verify?'verify-code':'request-code',email:$('email').value,code:$('code').value});
+  $('status').textContent=data.error??data.message??'';
+  if(status!==200)return;
+  if(!verify){
+   codeStep(true);
+   $('code').focus();
+  }else{
+   codeStep(false);
+   await load();
+  }
+ }catch{$('status').textContent='Innloggingen er midlertidig utilgjengelig.';}
+ finally{$('loginButton').disabled=$('changeEmail').disabled=false;}
+};
+$('changeEmail').onclick=()=>{codeStep(false);$('status').textContent='';$('email').focus();};
+$('prev').onclick=()=>{week=shift(week,-7);load();};
+$('next').onclick=()=>{week=shift(week,7);load();};
+$('logout').onclick=async()=>{
+ try{
+  const {status}=await api({action:'logout'});
+  if(status!==200)throw new Error();
+  $('days').replaceChildren();
+  await load();
+ }catch{$('status').textContent='Kunne ikke logge ut. Prøv igjen.';}
+};
+load();
+</script></body></html>
