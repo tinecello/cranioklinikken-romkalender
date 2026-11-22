@@ -419,6 +419,7 @@ async function reserveRoom(config, request, input) {
     if (!hold.ok) throw new Error('Reservation claim failed');
   }
 
+  if (config.siteId !== '6887eb64-7aa3-4208-a74a-16c3a3a811ca') return respond(503, { error: 'Netlify er koblet til en annen Wix-side enn Cranioklinikken Oslo.' });
   const created = await wixRequest(config, '/calendar/v3/events', {
     idempotencyKey: id,
     event: {
