@@ -129,7 +129,7 @@ async function readWeek(config, monday) {
       issues.push({ type: 'unknown', start, end });
       continue;
     }
-    const prefersMaxilla = staff.some(person => person.resource?.eventsSchedule?.id === event.scheduleId && emailKey(person.email) === 'tjohnsgaard@gmail.com');
+    const prefersMaxilla = staff.some(person => person.resource?.eventsSchedule?.id === event.scheduleId && emailKey(person.email) === config.adminEmail);
     const row = { id: event.id, name, prefersMaxilla, start, end, scheduleId: event.scheduleId };
     hours.push(row);
     const periods = perSchedule.get(event.scheduleId) ?? [];
