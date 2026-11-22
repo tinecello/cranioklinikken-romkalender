@@ -360,7 +360,7 @@ function osloNow() {
 async function reserveRoom(config, request, input) {
   const user = await signedInUser(config, request);
   if (!user || !['admin', 'therapist'].includes(user.role)) return respond(403, { error: 'Du kan bare reservere din egen arbeidstid.' });
-  if (!config.databaseKey || process.env.ENABLE_WIX_WRITES !== 'true') return respond(503, { error: 'Reservasjoner med Wix-synk er ikke aktivert.' });
+  if (!config.databaseKey || process.env.ENABLE_WIX_WRITES === 'false') return respond(503, { error: 'Reservasjoner med Wix-synk er ikke aktivert.' });
   const { id, week: monday, room, date, from, to } = input;
   if (typeof id !== 'string' || !/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(id)
       || typeof monday !== 'string' || typeof date !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(date)
@@ -519,7 +519,7 @@ export default async function handler(request) {
     }
     const tenants = rooms && canManageRentals(role) ? await readTenants(config).catch(() => null) : null;
     const unassignedBlocks = week.issues.filter(issue => issue.type === 'unknown').map(({ start, end }) => ({ start, end }));
-    return respond(200, { role, hours, temple, tenants, unassignedBlocks, ...(role === 'admin' ? { members: config.members } : {}), roomsEnabled: Boolean(rooms), reservationEnabled: Boolean(rooms) && process.env.ENABLE_WIX_WRITES === 'true' && ['admin', 'therapist'].includes(role), issues: role === 'admin' ? week.issues : [] });
+    return respond(200, { role, hours, temple, tenants, unassignedBlocks, ...(role === 'admin' ? { members: config.members } : {}), roomsEnabled: Boolean(rooms), reservationEnabled: Boolean(rooms) && process.env.ENABLE_WIX_WRITES !== 'false' && ['admin', 'therapist'].includes(role), issues: role === 'admin' ? week.issues : [] });
   } catch (error) {
     if (error.httpStatus) return respond(503, { error: 'Wix kunne ikke hente kalenderdata fra Vaajma (HTTP ' + error.httpStatus + ').' });
     return respond(503, { error: 'Kalenderen er midlertidig utilgjengelig.' });
