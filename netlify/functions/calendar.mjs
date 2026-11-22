@@ -30,7 +30,7 @@ async function settings() {
   }
   const config = {
     authOrigin: authOrigin.origin, authKey: SUPABASE_PUBLISHABLE_KEY, databaseKey: SUPABASE_SECRET_KEY,
-    wixKey: WIX_API_KEY, siteId: '6887eb64-7aa3-4208-a74a-16c3a3a811ca', templeSiteId: STILLEPUNKT_WIX_SITE_ID,
+    wixKey: WIX_API_KEY, siteId: WIX_SITE_ID, templeSiteId: STILLEPUNKT_WIX_SITE_ID,
     adminEmail: emailKey(CALENDAR_ADMIN_EMAIL),
   };
   const res = await databaseRequest(config, 'select=email,name,role&order=name', undefined, 'GET', 'calendar_members');
@@ -521,7 +521,7 @@ export default async function handler(request) {
     const unassignedBlocks = week.issues.filter(issue => issue.type === 'unknown').map(({ start, end }) => ({ start, end }));
     return respond(200, { role, hours, temple, tenants, unassignedBlocks, ...(role === 'admin' ? { members: config.members } : {}), roomsEnabled: Boolean(rooms), reservationEnabled: Boolean(rooms) && process.env.ENABLE_WIX_WRITES === 'true' && ['admin', 'therapist'].includes(role), issues: role === 'admin' ? week.issues : [] });
   } catch (error) {
-    if (error.httpStatus) return respond(503, { error: 'Wix kunne ikke hente kalenderdata for Cranioklinikken Oslo (HTTP ' + error.httpStatus + ').' });
+    if (error.httpStatus) return respond(503, { error: 'Wix kunne ikke hente kalenderdata fra Vaajma (HTTP ' + error.httpStatus + ').' });
     return respond(503, { error: 'Kalenderen er midlertidig utilgjengelig.' });
   }
 }
