@@ -415,11 +415,19 @@ async function reserveRoom(config, request, input) {
     idempotencyKey: id,
     event: {
       type: 'WORKING_HOURS', scheduleId,
-      start: { localDate: period.start }, end: { localDate: period.end },
+      timeZone: 'Europe/Oslo', transparency: 'TRANSPARENT',
+      location: { id: '6b18a2d6-70ce-4cc4-9827-7d658cef8bc1', type: 'BUSINESS' },
+      start: { localDate: period.start, timeZone: 'Europe/Oslo' },
+      end: { localDate: period.end, timeZone: 'Europe/Oslo' },
     },
   }).catch(() => null);
   if (!created?.event?.id) return respond(503, { error: 'Rommet er holdt av. Wix kunne ikke bekrefte arbeidstiden. Prøv samme reservasjon igjen.' });
 
+  const verified = await readWeek(config, monday);
+  if (!verified?.hours.some(hour => hour.id === created.event.id && hour.scheduleId === scheduleId
+      && hour.start.slice(0,19) === period.start && hour.end.slice(0,19) === period.end)) {
+    return respond(503, { error: 'Venter på bekreftelse fra Wix. Prøv samme reservasjon igjen.' });
+  }
   const saved = await databaseRequest(config, new URLSearchParams({ request_id: 'eq.' + id }), { wix_event_id: created.event.id }, 'PATCH');
   if (!saved.ok || (await saved.json()).length !== 1) {
     return respond(503, { error: 'Wix mottok arbeidstiden. Prøv samme reservasjon igjen for å fullføre koblingen.' });
