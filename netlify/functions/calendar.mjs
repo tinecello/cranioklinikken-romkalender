@@ -528,6 +528,7 @@ async function changeHours(config, request, input) {
   const restore = () => previous
     ? databaseRequest(config, 'on_conflict=wix_event_id', { wix_event_id: id, room: previous.room, starts_at: previous.starts_at, ends_at: previous.ends_at })
     : databaseRequest(config, roomKey, undefined, 'DELETE');
+  // Wix accepts a stale revision, so the originalStart/originalEnd check above is the real guard.
   const updated = await wixRequest(config, '/calendar/v3/events/' + encodeURIComponent(id), {
     event: {
       id, revision: hour.revision,

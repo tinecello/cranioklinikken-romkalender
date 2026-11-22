@@ -70,7 +70,11 @@ som ved ny reservasjon.
   overlappsperre), deretter oppdateres Wix-hendelsen med `PATCH
   /calendar/v3/events/{id}` og gjeldende `revision`. Avviser Wix, settes
   romholdet tilbake. En forekomst i en gjentakende serie blir et unntak i Wix,
-  så bare den ene dagen endres. Får hendelsen ny ID, flyttes romholdet med.
+  så bare den ene dagen endres (verifisert mot Vaajma 22.11.2026; ID-en beholdes).
+  Merk: en endret dag følger ikke senere endringer av selve serien i Wix.
+  Får hendelsen likevel ny ID, flyttes romholdet med.
+- Wix håndhever ikke `revision` (en gammel revisjon ble godtatt i test). Vernet
+  mot samtidige endringer er derfor sjekken av tiden klienten så, rett før PATCH.
 - `release-hours`: avlyser hendelsen i Wix (`POST …/cancel`) og fjerner romholdet.
 - Begge krever at tiden ikke har startet og at klienten sender tiden den så,
   slik at endringer gjort i Wix samtidig ikke overskrives.
