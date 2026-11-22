@@ -57,7 +57,30 @@ inntil endepunktet er testet med en separat Wix-testplan. Wix-nøkkelen trenger
 skrivetilgang til kalenderen. Supabase låser rom og terapeut før Wix-kallet.
 Ved uklart svar beholdes reservasjonen i status «Avventer Wix». Ved å sende
 inn samme reservasjon i samme nettleserfane brukes den samme forespørsels-ID-en.
-Redigering, sletting og romleie kan ikke gjøres gjennom dette endepunktet.
+Romleie kan ikke gjøres gjennom dette endepunktet.
+
+### Endre og frigi egen arbeidstid
+
+Innloggede terapeuter (og administrator) kan endre eller frigi sine egne
+fremtidige arbeidstider fra kortet i romoversikten («Endre arbeidstid»).
+Gjelder samme bryter `ENABLE_WIX_WRITES` og samme regler for bolker og rom
+som ved ny reservasjon.
+
+- `update-hours`: Supabase holder nytt rom og ny tid først (samme
+  overlappsperre), deretter oppdateres Wix-hendelsen med `PATCH
+  /calendar/v3/events/{id}` og gjeldende `revision`. Avviser Wix, settes
+  romholdet tilbake. En forekomst i en gjentakende serie blir et unntak i Wix,
+  så bare den ene dagen endres (verifisert mot Vaajma 22.11.2026; ID-en beholdes).
+  Merk: en endret dag følger ikke senere endringer av selve serien i Wix.
+  Får hendelsen likevel ny ID, flyttes romholdet med.
+- Wix håndhever ikke `revision` (en gammel revisjon ble godtatt i test). Vernet
+  mot samtidige endringer er derfor sjekken av tiden klienten så, rett før PATCH.
+- `release-hours`: avlyser hendelsen i Wix (`POST …/cancel`) og fjerner romholdet.
+- Begge krever at tiden ikke har startet og at klienten sender tiden den så,
+  slik at endringer gjort i Wix samtidig ikke overskrives.
+
+Romkalenderen sjekker ikke kundebookinger. Terapeuten får et varsel og har
+selv ansvar for å flytte eller avlyse bookinger i Wix før tiden endres.
 
 Romansvarlige og administrator kan legge til leietakere, reservere, endre
 og frigi romleie. Romleie lagres bare i romkalenderen og omfattes av samme

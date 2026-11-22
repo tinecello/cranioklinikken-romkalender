@@ -60,9 +60,9 @@ function authRequest(config, path, { body, token } = {}) {
   });
 }
 
-async function wixRequest(config, path, body) {
+async function wixRequest(config, path, body, method = 'POST') {
   const res = await fetch(wixOrigin + path, {
-    method: 'POST',
+    method,
     headers: { Authorization: config.wixKey, 'wix-site-id': config.siteId, 'Content-Type': 'application/json' },
     body: JSON.stringify(body),
     redirect: 'error',
@@ -135,7 +135,7 @@ async function readWeek(config, monday) {
       continue;
     }
     const prefersMaxilla = staff.some(person => person.resource?.eventsSchedule?.id === event.scheduleId && emailKey(person.email) === config.adminEmail);
-    const row = { id: event.id, name, prefersMaxilla, start, end, scheduleId: event.scheduleId };
+    const row = { id: event.id, name, prefersMaxilla, start, end, scheduleId: event.scheduleId, revision: event.revision };
     hours.push(row);
     const periods = perSchedule.get(event.scheduleId) ?? [];
     periods.push(row);
@@ -357,6 +357,32 @@ function osloNow() {
     hour: '2-digit', minute: '2-digit', second: '2-digit', hourCycle: 'h23' }).format(new Date()).replace(' ', 'T');
 }
 
+// Shared rules for registering or moving one of the therapist's own Wix periods.
+// ignoreId leaves out the period being moved, so it does not block itself.
+function slotConflict(week, rows, { scheduleId, room, date, from, to, period, ignoreId }) {
+  const hours = week.hours.filter(hour => hour.id !== ignoreId);
+  const others = rows.filter(row => row.wix_event_id !== ignoreId);
+  const periods = roomPeriods(hours, others, week.issues);
+  if (week.issues.some(issue => issue.type === 'unknown' && overlaps(issue, period))) {
+    return { status: 409, error: 'En uidentifisert arbeidstid i Wix må avklares først.' };
+  }
+  const own = periods.filter(hour => hour.room === room && hour.scheduleId === scheduleId && hour.start.slice(0,10) === date);
+  const envelope = { start: [period.start,...own.map(x => x.start)].sort()[0], end: [period.end,...own.map(x => x.end)].sort().at(-1) };
+  if (hours.some(hour => hour.scheduleId === scheduleId && overlaps(hour,period))
+      || periods.some(hour => hour.scheduleId !== scheduleId && (!hour.room || hour.room === room) && overlaps(hour,envelope))
+      || periods.some(hour => hour.scheduleId === scheduleId && hour.room !== room && overlaps(hour,envelope))
+      || others.some(row => (row.tenant_id || row.wix_event_id.startsWith('pending-')) && row.room === room && overlaps({start:row.starts_at,end:row.ends_at},envelope))
+      || week.issues.some(issue => issue.type === 'unknown' && overlaps(issue,envelope))) {
+    return { status: 409, error: 'Tiden overlapper en arbeidstid i Wix. Eventuelle ufordelte tider må få et rom først.' };
+  }
+  const withinBlock = workBlocks.some(([start, end]) => from >= start && to <= end);
+  const bridge = workBlocks.slice(0, -1).some(([, end], i) => from === end && to === workBlocks[i + 1][0]
+    && hours.some(hour => hour.scheduleId === scheduleId && hour.room === room && hour.end === period.start)
+    && hours.some(hour => hour.scheduleId === scheduleId && hour.room === room && hour.start === period.end));
+  if (!withinBlock && !bridge) return { status: 400, error: 'Velg en tid innenfor en bolk eller mellom to av dine bolker i samme rom.' };
+  return null;
+}
+
 async function reserveRoom(config, request, input) {
   const user = await signedInUser(config, request);
   if (!user || !['admin', 'therapist'].includes(user.role)) return respond(403, { error: 'Du kan bare reservere din egen arbeidstid.' });
@@ -390,24 +416,8 @@ async function reserveRoom(config, request, input) {
     if (existing.wix_event_id !== pendingId) return respond(200, {});
   } else {
     const rows = await readRooms(config, monday, week.hours);
-    const periods = roomPeriods(week.hours, rows, week.issues);
-    if (week.issues.some(issue => issue.type === 'unknown' && overlaps(issue, period))) {
-      return respond(409, { error: 'En uidentifisert arbeidstid i Wix må avklares først.' });
-    }
-    const own = periods.filter(hour => hour.room === room && hour.scheduleId === scheduleId && hour.start.slice(0,10) === date);
-    const envelope = { start: [period.start,...own.map(x => x.start)].sort()[0], end: [period.end,...own.map(x => x.end)].sort().at(-1) };
-    if (week.hours.some(hour => hour.scheduleId === scheduleId && overlaps(hour,period))
-        || periods.some(hour => hour.scheduleId !== scheduleId && (!hour.room || hour.room === room) && overlaps(hour,envelope))
-        || periods.some(hour => hour.scheduleId === scheduleId && hour.room !== room && overlaps(hour,envelope))
-        || rows.some(row => (row.tenant_id || row.wix_event_id.startsWith('pending-')) && row.room === room && overlaps({start:row.starts_at,end:row.ends_at},envelope))
-        || week.issues.some(issue => issue.type === 'unknown' && overlaps(issue,envelope))) {
-      return respond(409, { error: 'Tiden overlapper en arbeidstid i Wix. Eventuelle ufordelte tider må få et rom først.' });
-    }
-    const withinBlock = workBlocks.some(([start, end]) => from >= start && to <= end);
-    const bridge = workBlocks.slice(0, -1).some(([, end], i) => from === end && to === workBlocks[i + 1][0]
-      && week.hours.some(hour => hour.scheduleId === scheduleId && hour.room === room && hour.end === period.start)
-      && week.hours.some(hour => hour.scheduleId === scheduleId && hour.room === room && hour.start === period.end));
-    if (!withinBlock && !bridge) return respond(400, { error: 'Velg en tid innenfor en bolk eller mellom to av dine bolker i samme rom.' });
+    const conflict = slotConflict(week, rows, { scheduleId, room, date, from, to, period });
+    if (conflict) return respond(conflict.status, { error: conflict.error });
     const hold = await databaseRequest(config, '', {
       wix_event_id: pendingId, request_id: id, staff_schedule_id: scheduleId,
       room, starts_at: period.start, ends_at: period.end,
@@ -437,6 +447,112 @@ async function reserveRoom(config, request, input) {
   const saved = await databaseRequest(config, new URLSearchParams({ request_id: 'eq.' + id }), { wix_event_id: created.event.id }, 'PATCH');
   if (!saved.ok || (await saved.json()).length !== 1) {
     return respond(503, { error: 'Wix mottok arbeidstiden. Prøv samme reservasjon igjen for å fullføre koblingen.' });
+  }
+  return respond(200, {});
+}
+
+function ownSchedule(week, email) {
+  const staff = week.staff.filter(person => emailKey(person.email) === email && !person.resource?.usesDefaultWorkingHours);
+  return staff.length === 1 ? staff[0].resource?.eventsSchedule?.id ?? null : null;
+}
+
+// Moves or frees one of the signed-in therapist's own future Wix periods.
+// Supabase holds the new room and time first, so two people cannot take the same room while Wix is updated.
+async function changeHours(config, request, input) {
+  const user = await signedInUser(config, request);
+  if (!user || !['admin', 'therapist'].includes(user.role)) return respond(403, { error: 'Du kan bare endre din egen arbeidstid.' });
+  if (!config.databaseKey || process.env.ENABLE_WIX_WRITES === 'false') return respond(503, { error: 'Endring med Wix-synk er ikke aktivert.' });
+  const clock = /^([01]\d|2[0-3]):[0-5]\d$/;
+  const local = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}$/;
+  const { id, week: monday, originalStart, originalEnd } = input;
+  if (typeof id !== 'string' || !/^[\w-]{1,300}$/.test(id) || typeof monday !== 'string'
+      || typeof originalStart !== 'string' || !local.test(originalStart.slice(0, 19))
+      || typeof originalEnd !== 'string' || !local.test(originalEnd.slice(0, 19))) {
+    return respond(400, { error: 'Velg en gyldig arbeidstid.' });
+  }
+  const week = await readWeek(config, monday);
+  if (!week) return respond(400, { error: 'Velg en gyldig uke.' });
+  const scheduleId = ownSchedule(week, user.email);
+  if (!scheduleId) return respond(409, { error: 'Fant ingen entydig arbeidstidsplan for deg i Wix.' });
+  const now = osloNow();
+  const hour = week.hours.find(row => row.id === id);
+  if (hour && hour.scheduleId !== scheduleId) return respond(403, { error: 'Du kan bare endre din egen arbeidstid.' });
+  const roomKey = new URLSearchParams({ wix_event_id: 'eq.' + id });
+
+  if (input.action === 'release-hours') {
+    if (!hour) {
+      // Already gone in Wix, for example after a retry. Clear any leftover room hold.
+      const cleared = await databaseRequest(config, roomKey, undefined, 'DELETE');
+      if (!cleared.ok) throw new Error('Room release failed');
+      return respond(200, {});
+    }
+    if (hour.start.slice(0, 19) !== originalStart.slice(0, 19) || hour.end.slice(0, 19) !== originalEnd.slice(0, 19)) {
+      return respond(409, { error: 'Arbeidstiden er endret i Wix. Last uken på nytt.' });
+    }
+    if (hour.start <= now) return respond(400, { error: 'Du kan bare frigi tid som ikke har startet.' });
+    const cancelled = await wixRequest(config, '/calendar/v3/events/' + encodeURIComponent(id) + '/cancel', {})
+      .catch(error => ({ httpStatus: error.httpStatus, code: error.code }));
+    if (cancelled?.httpStatus) return respond(503, { error: 'Wix avviste frigivingen (HTTP ' + cancelled.httpStatus + (cancelled.code ? ', ' + cancelled.code : '') + '). Tiden er uendret.' });
+    const cleared = await databaseRequest(config, roomKey, undefined, 'DELETE');
+    if (!cleared.ok) return respond(503, { error: 'Tiden er frigitt i Wix, men romholdet ble ikke fjernet. Prøv igjen.' });
+    return respond(200, {});
+  }
+
+  const { room, date, from, to } = input;
+  if (typeof date !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(date) || !clock.test(from) || !clock.test(to)
+      || from >= to || !['mandibula', 'maxilla'].includes(room)) {
+    return respond(400, { error: 'Velg en gyldig dato, tid og et rom.' });
+  }
+  const days = Array.from({ length: 7 }, (_, i) => new Date(Date.parse(monday + 'T00:00:00Z') + i * 86400000).toISOString().slice(0, 10));
+  const period = { start: date + 'T' + from + ':00', end: date + 'T' + to + ':00' };
+  if (!days.includes(date) || period.start <= now) return respond(400, { error: 'Velg en fremtidig tid i den viste uken.' });
+  if (!hour) return respond(409, { error: 'Arbeidstiden finnes ikke lenger i Wix. Last uken på nytt.' });
+
+  const rows = await readRooms(config, monday, week.hours);
+  const hold = { wix_event_id: id, room, starts_at: period.start, ends_at: period.end, staff_schedule_id: scheduleId };
+  const alreadyDone = hour.start.slice(0, 19) === period.start && hour.end.slice(0, 19) === period.end;
+  if (alreadyDone && hour.room === room) return respond(200, {});
+  if (!alreadyDone && (hour.start.slice(0, 19) !== originalStart.slice(0, 19) || hour.end.slice(0, 19) !== originalEnd.slice(0, 19))) {
+    return respond(409, { error: 'Arbeidstiden er endret i Wix. Last uken på nytt.' });
+  }
+  if (hour.start <= now) return respond(400, { error: 'Du kan bare endre tid som ikke har startet.' });
+  const conflict = slotConflict(week, rows, { scheduleId, room, date, from, to, period, ignoreId: id });
+  if (conflict) return respond(conflict.status, { error: conflict.error });
+
+  const previous = rows.find(row => row.wix_event_id === id);
+  const claim = await databaseRequest(config, 'on_conflict=wix_event_id', hold);
+  if (claim.status === 409) return respond(409, { error: 'Rommet eller arbeidstiden er allerede reservert. Last inn uken på nytt.' });
+  if (!claim.ok) throw new Error('Room claim failed');
+  if (alreadyDone) return respond(200, {});
+
+  const restore = () => previous
+    ? databaseRequest(config, 'on_conflict=wix_event_id', { wix_event_id: id, room: previous.room, starts_at: previous.starts_at, ends_at: previous.ends_at })
+    : databaseRequest(config, roomKey, undefined, 'DELETE');
+  // Wix accepts a stale revision, so the originalStart/originalEnd check above is the real guard.
+  const updated = await wixRequest(config, '/calendar/v3/events/' + encodeURIComponent(id), {
+    event: {
+      id, revision: hour.revision,
+      start: { localDate: period.start, timeZone: 'Europe/Oslo' },
+      end: { localDate: period.end, timeZone: 'Europe/Oslo' },
+    },
+  }, 'PATCH').catch(error => ({ httpStatus: error.httpStatus, code: error.code }));
+  if (updated?.httpStatus) {
+    await restore().catch(() => {});
+    const stale = updated.httpStatus === 409 || /REVISION/.test(updated.code ?? '');
+    return respond(stale ? 409 : 503, { error: stale ? 'Arbeidstiden ble endret i Wix samtidig. Last uken på nytt.'
+      : 'Wix avviste endringen (HTTP ' + updated.httpStatus + (updated.code ? ', ' + updated.code : '') + '). Tiden er uendret.' });
+  }
+  const newId = updated?.event?.id;
+  if (!newId) return respond(503, { error: 'Wix kunne ikke bekrefte endringen. Last uken på nytt og prøv igjen.' });
+  // A recurring instance can become an exception with a new id. Move the room hold along with it.
+  if (newId !== id) {
+    const moved = await databaseRequest(config, roomKey, { wix_event_id: newId }, 'PATCH');
+    if (!moved.ok) return respond(503, { error: 'Wix mottok endringen, men rommet ble ikke koblet. Kontakt administrator.' });
+  }
+  const verified = await readWeek(config, monday);
+  if (!verified?.hours.some(row => row.id === newId && row.scheduleId === scheduleId
+      && row.start.slice(0, 19) === period.start && row.end.slice(0, 19) === period.end)) {
+    return respond(503, { error: 'Venter på bekreftelse fra Wix. Last uken på nytt om litt.' });
   }
   return respond(200, {});
 }
@@ -473,6 +589,7 @@ export default async function handler(request) {
       if (['add-member', 'remove-member'].includes(action)) return await manageMember(await settings(), request, input);
       if (['add-tenant', 'reserve-rental', 'update-rental', 'release-rental'].includes(action)) return await manageRental(await settings(), request, input);
       if (action === 'reserve-room') return await reserveRoom(await settings(), request, input);
+      if (['update-hours', 'release-hours'].includes(action)) return await changeHours(await settings(), request, input);
       if (action === 'assign-room') return await assignRoom(await settings(), request, input);
       if (action === 'logout') return respond(200, {}, { 'Set-Cookie': session('', 0) });
       if (!['request-link', 'verify-link'].includes(action)) return respond(400, { error: 'Ugyldig forespørsel.' });
@@ -498,7 +615,8 @@ export default async function handler(request) {
 
     if (!request.headers.get('Cookie')?.includes(sessionCookie + '=')) return respond(401, { error: 'Logg inn for å se arbeidstid.' });
     const config = await settings();
-    const role = (await signedInUser(config, request))?.role;
+    const viewer = await signedInUser(config, request);
+    const role = viewer?.role;
     if (!role) return respond(401, { error: 'Logg inn for å se arbeidstid.' }, { 'Set-Cookie': session('', 0) });
     const monday = url.searchParams.get('week') ?? '';
     const week = await readWeek(config, monday);
@@ -507,9 +625,11 @@ export default async function handler(request) {
       readTemple(config, monday).catch(() => null),
       readRooms(config, monday, week.hours).catch(() => false),
     ]);
-    const hours = roomPeriods(week.hours, rooms || [], week.issues).map(({ scheduleId, prefersMaxilla, slots, ...hour }) => ({
-      ...hour, ...(role === 'admin' ? { slots: slots.map(({ id, start, end }) => ({ id, start, end, room: hour.room })) } : {})
-    }));
+    const mine = ownSchedule(week, viewer.email);
+    const hours = roomPeriods(week.hours, rooms || [], week.issues).map(({ scheduleId, prefersMaxilla, slots, revision, ...hour }) => {
+      const own = Boolean(mine) && scheduleId === mine;
+      return { ...hour, own, ...(role === 'admin' || own ? { slots: slots.map(({ id, start, end }) => ({ id, start, end, room: hour.room })) } : {}) };
+    });
     for (const room of rooms || []) {
       if (room.wix_event_id.startsWith('pending-')) hours.push({ name: 'Avventer Wix', start: room.starts_at, end: room.ends_at, room: room.room });
       if (room.tenant_id) hours.push({
