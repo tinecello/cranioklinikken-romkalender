@@ -129,7 +129,8 @@ async function readWeek(config, monday) {
       issues.push({ type: 'unknown', start, end });
       continue;
     }
-    const row = { id: event.id, name, start, end, scheduleId: event.scheduleId };
+    const prefersMaxilla = staff.some(person => person.resource?.eventsSchedule?.id === event.scheduleId && emailKey(person.email) === 'tjohnsgaard@gmail.com');
+    const row = { id: event.id, name, prefersMaxilla, start, end, scheduleId: event.scheduleId };
     hours.push(row);
     const periods = perSchedule.get(event.scheduleId) ?? [];
     periods.push(row);
@@ -227,6 +228,38 @@ async function readRooms(config, monday, hours) {
   return rows;
 }
 
+function roomPeriods(hours, rows, issues) {
+  const groups = new Map();
+  const sorted = [...hours].sort((a,b) => a.start.localeCompare(b.start) || a.scheduleId.localeCompare(b.scheduleId));
+  for (const hour of sorted) {
+    const dayKey = hour.scheduleId + '/' + hour.start.slice(0,10);
+    const day = groups.get(dayKey) ?? [];
+    const previous = day.at(-1);
+    if (previous && (!hour.room || !previous.room || hour.room === previous.room)) {
+      previous.room ||= hour.room;
+      if (hour.end > previous.end) previous.end = hour.end;
+      previous.slots.push(hour);
+    } else {
+      day.push({ ...hour, slots: [hour] });
+    }
+    groups.set(dayKey, day);
+  }
+  const periods = [...groups.values()].flat();
+  const occupied = periods.filter(period => period.room).concat(
+    rows.filter(row => row.tenant_id || row.wix_event_id.startsWith('pending-'))
+      .map(row => ({ room: row.room, start: row.starts_at, end: row.ends_at })),
+    issues.filter(issue => issue.type === 'unknown')
+  );
+  const automatic = periods.filter(period => !period.room).sort((a,b) =>
+    Number(b.prefersMaxilla) - Number(a.prefersMaxilla) || a.start.localeCompare(b.start));
+  for (const period of automatic) {
+    const order = period.prefersMaxilla ? ['maxilla'] : ['mandibula','maxilla'];
+    period.room = order.find(room => !occupied.some(other => (!other.room || other.room === room) && overlaps(other, period)));
+    occupied.push(period);
+  }
+  return periods;
+}
+
 async function assignRoom(config, request, input) {
   if ((await signedInUser(config, request))?.role !== 'admin') return respond(403, { error: 'Kun administrator kan tildele rom.' });
   if (!config.databaseKey) return respond(503, { error: 'Lagring av rom er ikke konfigurert.' });
@@ -297,9 +330,10 @@ async function manageRental(config, request, input) {
   }
   const period = { start: date + 'T' + from + ':00', end: date + 'T' + to + ':00' };
   if (period.start <= osloNow()) return respond(400, { error: 'Velg et fremtidig tidspunkt.' });
-  await readRooms(config, monday, week.hours);
+  const rows = await readRooms(config, monday, week.hours);
+    const periods = roomPeriods(week.hours, rows, week.issues);
   if (week.issues.some(issue => issue.type === 'unknown' && overlaps(issue, period))
-      || week.hours.some(hour => overlaps(hour, period) && (!hour.room || hour.room === room))) {
+      || periods.some(hour => overlaps(hour, period) && (!hour.room || hour.room === room))) {
     return respond(409, { error: 'Tiden overlapper en arbeidstid i Wix. Ufordelt arbeidstid må avklares først.' });
   }
   const row = { tenant_id: tenantId, room, starts_at: period.start, ends_at: period.end };
@@ -350,11 +384,18 @@ async function reserveRoom(config, request, input) {
     }
     if (existing.wix_event_id !== pendingId) return respond(200, {});
   } else {
-    await readRooms(config, monday, week.hours);
+    const rows = await readRooms(config, monday, week.hours);
+    const periods = roomPeriods(week.hours, rows, week.issues);
     if (week.issues.some(issue => issue.type === 'unknown' && overlaps(issue, period))) {
       return respond(409, { error: 'En uidentifisert arbeidstid i Wix må avklares først.' });
     }
-    if (week.hours.some(hour => overlaps(hour, period) && (hour.scheduleId === scheduleId || !hour.room || hour.room === room))) {
+    const own = periods.filter(hour => hour.room === room && hour.scheduleId === scheduleId && hour.start.slice(0,10) === date);
+    const envelope = { start: [period.start,...own.map(x => x.start)].sort()[0], end: [period.end,...own.map(x => x.end)].sort().at(-1) };
+    if (week.hours.some(hour => hour.scheduleId === scheduleId && overlaps(hour,period))
+        || periods.some(hour => hour.scheduleId !== scheduleId && (!hour.room || hour.room === room) && overlaps(hour,envelope))
+        || periods.some(hour => hour.scheduleId === scheduleId && hour.room !== room && overlaps(hour,envelope))
+        || rows.some(row => (row.tenant_id || row.wix_event_id.startsWith('pending-')) && row.room === room && overlaps({start:row.starts_at,end:row.ends_at},envelope))
+        || week.issues.some(issue => issue.type === 'unknown' && overlaps(issue,envelope))) {
       return respond(409, { error: 'Tiden overlapper en arbeidstid i Wix. Eventuelle ufordelte tider må få et rom først.' });
     }
     const withinBlock = workBlocks.some(([start, end]) => from >= start && to <= end);
@@ -452,7 +493,9 @@ export default async function handler(request) {
       readTemple(config, monday).catch(() => null),
       readRooms(config, monday, week.hours).catch(() => false),
     ]);
-    const hours = week.hours.map(({ scheduleId, ...hour }) => hour);
+    const hours = roomPeriods(week.hours, rooms || [], week.issues).map(({ scheduleId, prefersMaxilla, slots, ...hour }) => ({
+      ...hour, ...(role === 'admin' ? { slots: slots.map(({ id, start, end }) => ({ id, start, end, room: hour.room })) } : {})
+    }));
     for (const room of rooms || []) {
       if (room.wix_event_id.startsWith('pending-')) hours.push({ name: 'Avventer Wix', start: room.starts_at, end: room.ends_at, room: room.room });
       if (room.tenant_id) hours.push({
