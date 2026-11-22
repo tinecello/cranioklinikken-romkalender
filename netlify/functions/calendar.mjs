@@ -68,7 +68,7 @@ async function wixRequest(config, path, body) {
     redirect: 'error',
     signal: AbortSignal.timeout(8000),
   });
-  if (!res.ok) throw new Error('Wix request failed');
+  if (!res.ok) throw Object.assign(new Error('Wix request failed'), { httpStatus: res.status });
   return res.json();
 }
 
@@ -423,7 +423,8 @@ async function reserveRoom(config, request, input) {
       start: { localDate: period.start, timeZone: 'Europe/Oslo' },
       end: { localDate: period.end, timeZone: 'Europe/Oslo' },
     },
-  }).catch(() => null);
+  }).catch(error => ({ httpStatus: error.httpStatus }));
+  if (created?.httpStatus) return respond(503, { error: 'Wix avviste registreringen (HTTP ' + created.httpStatus + '). Rommet er holdt av.' });
   if (!created?.event?.id) return respond(503, { error: 'Rommet er holdt av. Wix kunne ikke bekrefte arbeidstiden. Prøv samme reservasjon igjen.' });
 
   const verified = await readWeek(config, monday);
