@@ -272,16 +272,12 @@ function entries(){
 }
 const canBook=()=>data.reservationEnabled||Array.isArray(data.tenants);
 const canAssign=()=>data.roomsEnabled&&data.role==='admin';
-function range(){
- let lo=8*60,hi=22*60;
- const days=Array.from({length:7},(_,i)=>shift(week,i));
- for(const day of days){for(const x of dayEntries(entries(),day)){lo=Math.min(lo,toMin(x.s));hi=Math.max(hi,toMin(x.e))}for(const t of templeDay(day)){lo=Math.min(lo,toMin(t.s));hi=Math.max(hi,toMin(t.e))}}
- return [Math.floor(lo/60),Math.ceil(hi/60)];
-}
+const range=()=>[8,22];
 function lanes(day,H,[h0,h1],mobile){
- const top=t=>Math.round((toMin(t)-h0*60)/60*H);
+ const top=t=>Math.round((Math.min(Math.max(toMin(t),h0*60),h1*60)-h0*60)/60*H);
+ const inView=x=>toMin(x.e)>h0*60&&toMin(x.s)<h1*60;
  const box=el('div',{class:'lanes'+(day<today?' past':''),style:`height:${(h1-h0)*H}px;--h:${H}px`});
- for(const t of templeDay(day))box.append(el('div',{class:'temple',style:`top:${top(t.s)}px;height:${top(t.e)-top(t.s)}px`},'Templet · '+t.title));
+ for(const t of templeDay(day).filter(inView))box.append(el('div',{class:'temple',style:`top:${top(t.s)}px;height:${top(t.e)-top(t.s)}px`},'Templet · '+t.title));
  const rows=dayEntries(entries(),day);
  if(data.roomsEnabled&&canBook()&&day>=today){
   const unknown=rows.filter(r=>r.unknown);
@@ -295,12 +291,12 @@ function lanes(day,H,[h0,h1],mobile){
    }
   }
  }
- for(const r of rows){
+ for(const r of rows.filter(inView)){
   const k=r.room?roomKey[r.room]:'both';
   const cls=['blk',k,r.own?'own':'',r.rental||r.tenant?'rent':'',r.name==='Avventer Wix'?'pending':''].join(' ');
   const h=top(r.e)-top(r.s)-2;
   box.append(el('button',{type:'button',class:cls,style:`top:${top(r.s)+1}px;height:${h}px`,'aria-label':r.name+', '+span(r.s,r.e)+(r.room?', '+roomLabels[r.room]:''),onclick:()=>openItem(r)},
-   r.own&&h>=48?el('span',{class:'tag'},'Din tid'):null,el('strong',{},r.name),h>=30?el('small',{},span(r.s,r.e)):null));
+   el('strong',{},r.name),h>=30?el('small',{},span(r.s,r.e)):null));
  }
  if(day===today){const n=nowLocal().slice(11,16);if(toMin(n)>=h0*60&&toMin(n)<=h1*60)box.append(el('div',{class:'nowline',style:`top:${top(n)}px`}));}
  return box;
@@ -330,10 +326,10 @@ function renderMob(rg){
  }
  const head=el('div',{class:'mobhead'},el('h2',{},cap(longDay.format(D(mobileDay)))));
  const hours=el('div',{class:'hours'});
- for(let h=rg[0];h<rg[1];h++)hours.append(el('div',{style:'height:36px'},String(h).padStart(2,'0')));
+ for(let h=rg[0];h<rg[1];h++)hours.append(el('div',{style:'height:32px'},String(h).padStart(2,'0')));
  $('mob').replaceChildren(strip,head,
   el('div',{class:'mobrooms'},el('span',{style:'color:var(--m-ink)'},el('i',{style:'background:var(--m-dot)'}),'Mandibula'),el('span',{style:'color:var(--x-ink)'},el('i',{style:'background:var(--x-dot)'}),'Maxilla')),
-  el('div',{class:'mobgrid'},hours,lanes(mobileDay,36,rg,true)));
+  el('div',{class:'mobgrid'},hours,lanes(mobileDay,32,rg,true)));
 }
 function renderSide(){
  const side=$('side');side.replaceChildren();
