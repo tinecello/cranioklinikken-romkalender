@@ -120,7 +120,7 @@ async function readWeek(config, monday) {
     const start = event.start?.localDate;
     const end = event.end?.localDate;
     const name = bySchedule.get(event.scheduleId);
-    if (!name && knownSchedules.has(event.scheduleId)) continue;
+    if (!name && (knownSchedules.has(event.scheduleId) || event.scheduleName === 'business')) continue;
     if (!start || !end || start >= end) {
       issues.push({ type: 'invalid', name, start, end });
       continue;
