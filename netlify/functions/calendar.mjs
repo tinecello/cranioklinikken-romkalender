@@ -352,14 +352,10 @@ function osloNow() {
     hour: '2-digit', minute: '2-digit', second: '2-digit', hourCycle: 'h23' }).format(new Date()).replace(' ', 'T');
 }
 
-function decemberTrial(role, monday) {
-  return role === 'admin' && monday === '2026-12-28' && osloNow().slice(0,10) <= '2026-12-31';
-}
-
 async function reserveRoom(config, request, input) {
   const user = await signedInUser(config, request);
   if (!user || !['admin', 'therapist'].includes(user.role)) return respond(403, { error: 'Du kan bare reservere din egen arbeidstid.' });
-  if (!config.databaseKey || (process.env.ENABLE_WIX_WRITES !== 'true' && !(decemberTrial(user.role, input.week) && input.date <= '2026-12-31'))) return respond(503, { error: 'Reservasjoner med Wix-synk er ikke aktivert.' });
+  if (!config.databaseKey || process.env.ENABLE_WIX_WRITES !== 'true') return respond(503, { error: 'Reservasjoner med Wix-synk er ikke aktivert.' });
   const { id, week: monday, room, date, from, to } = input;
   if (typeof id !== 'string' || !/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(id)
       || typeof monday !== 'string' || typeof date !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(date)
@@ -509,7 +505,7 @@ export default async function handler(request) {
     }
     const tenants = rooms && canManageRentals(role) ? await readTenants(config).catch(() => null) : null;
     const unassignedBlocks = week.issues.filter(issue => issue.type === 'unknown').map(({ start, end }) => ({ start, end }));
-    return respond(200, { role, hours, temple, tenants, unassignedBlocks, ...(role === 'admin' ? { members: config.members } : {}), roomsEnabled: Boolean(rooms), reservationEnabled: Boolean(rooms) && (process.env.ENABLE_WIX_WRITES === 'true' || decemberTrial(role, monday)) && ['admin', 'therapist'].includes(role), issues: role === 'admin' ? week.issues : [] });
+    return respond(200, { role, hours, temple, tenants, unassignedBlocks, ...(role === 'admin' ? { members: config.members } : {}), roomsEnabled: Boolean(rooms), reservationEnabled: Boolean(rooms) && process.env.ENABLE_WIX_WRITES === 'true' && ['admin', 'therapist'].includes(role), issues: role === 'admin' ? week.issues : [] });
   } catch {
     return respond(503, { error: 'Kalenderen er midlertidig utilgjengelig.' });
   }
