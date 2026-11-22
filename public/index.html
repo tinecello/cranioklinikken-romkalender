@@ -21,6 +21,7 @@ body{background:#f7f5f1;color:#302f34;font-family:system-ui,sans-serif}header{ba
 <h2 id="week"></h2>
 <div class="actions"><button id="prev">Forrige uke</button><button id="next">Neste uke</button><button id="logout">Logg ut</button></div>
 <h3>Romoversikt</h3><p class="room-note" id="roomNote"></p><div class="room-overview" id="days" tabindex="0" aria-label="Rull sidelengs for å se hele uken"></div>
+<section id="temple" class="temple" hidden><h2>Templet</h2><p id="templeStatus" hidden></p><div class="days" id="templeDays"></div></section>
 <form id="reservation" hidden>
 <h3>Reserver arbeidstid</h3>
 <label for="room">Rom</label><select id="room"><option value="mandibula">Mandibula</option><option value="maxilla">Maxilla</option></select>
@@ -54,7 +55,7 @@ body{background:#f7f5f1;color:#302f34;font-family:system-ui,sans-serif}header{ba
 </form>
 <p id="memberStatus" role="status"></p><ul id="members"></ul>
 </details><details id="issues" hidden><summary id="issueSummary"></summary><ul id="issueList"></ul></details>
-</section><section id="temple" class="temple" hidden><h2>Templet</h2><p id="templeStatus" hidden></p><div class="days" id="templeDays"></div></section></main>
+</section></main>
 <script>
 const $=id=>document.getElementById(id);
 const dateFormat=new Intl.DateTimeFormat('sv-SE',{timeZone:'Europe/Oslo',year:'numeric',month:'2-digit',day:'2-digit'});
