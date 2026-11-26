@@ -288,6 +288,25 @@ async function assignRoom(config, request, input) {
 const workBlocks = [['08:00', '12:30'], ['12:45', '17:15'], ['17:30', '22:00']];
 const overlaps = (a, b) => a.start < b.end && b.start < a.end;
 
+// A pause between two blocks may be used only by someone who has the same room on both sides of it.
+// segments: the new time plus the same person's other times in that room on that day.
+function pauseError(date, from, to, period, segments) {
+  if (from < workBlocks[0][0] || to > workBlocks.at(-1)[1]) {
+    return 'Velg en tid mellom ' + workBlocks[0][0] + ' og ' + workBlocks.at(-1)[1] + '.';
+  }
+  const parts = [period, ...segments].map(s => ({ start: s.start.slice(0, 19), end: s.end.slice(0, 19) }));
+  const at = clock => date + 'T' + clock + ':00';
+  const pauses = workBlocks.slice(0, -1).map(([blockStart, end], i) => ({
+    start: at(end), end: at(workBlocks[i + 1][0]), before: { start: at(blockStart), end: at(end) },
+    after: { start: at(workBlocks[i + 1][0]), end: at(workBlocks[i + 1][1]) },
+  }));
+  // Someone with the room both earlier in the block before and later in the block after holds the whole span,
+  // so the overlap checks already keep everyone else out of the pause.
+  const unbridged = pauses.filter(pause => overlaps(pause, period)).some(pause =>
+    !parts.some(s => overlaps(s, pause.before)) || !parts.some(s => overlaps(s, pause.after)));
+  return unbridged ? 'Tiden går inn i en pause mellom bolkene. Det går bare når samme rom er booket både før og etter pausen.' : null;
+}
+
 const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const canManageRentals = role => ['admin', 'rental-manager'].includes(role);
 
@@ -324,8 +343,8 @@ async function manageRental(config, request, input) {
   const clock = /^([01]\d|2[0-3]):[0-5]\d$/;
   if (typeof tenantId !== 'string' || !uuid.test(tenantId) || typeof monday !== 'string'
       || typeof date !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(date) || !clock.test(from) || !clock.test(to) || from >= to
-      || !['mandibula', 'maxilla'].includes(room) || !workBlocks.some(([a, b]) => from >= a && to <= b)) {
-    return respond(400, { error: 'Velg leietaker, rom og tid innenfor én bolk.' });
+      || !['mandibula', 'maxilla'].includes(room)) {
+    return respond(400, { error: 'Velg leietaker, rom og tid.' });
   }
   const week = await readWeek(config, monday);
   if (!week) return respond(400, { error: 'Ugyldig uke.' });
@@ -341,6 +360,10 @@ async function manageRental(config, request, input) {
       || periods.some(hour => overlaps(hour, period) && (!hour.room || hour.room === room))) {
     return respond(409, { error: 'Tiden overlapper en arbeidstid i Wix. Ufordelt arbeidstid må avklares først.' });
   }
+  const sameTenant = rows.filter(r => r.tenant_id === tenantId && r.room === room && r.wix_event_id !== key
+    && r.starts_at.slice(0, 10) === date).map(r => ({ start: r.starts_at, end: r.ends_at }));
+  const pause = pauseError(date, from, to, period, sameTenant);
+  if (pause) return respond(400, { error: pause });
   const row = { tenant_id: tenantId, room, starts_at: period.start, ends_at: period.end };
   const updating = input.action === 'update-rental';
   const res = updating
@@ -375,17 +398,8 @@ function slotConflict(week, rows, { scheduleId, room, date, from, to, period, ig
       || week.issues.some(issue => issue.type === 'unknown' && overlaps(issue,envelope))) {
     return { status: 409, error: 'Tiden overlapper en arbeidstid i Wix. Eventuelle ufordelte tider må få et rom først.' };
   }
-  // A pause between two blocks may be used only by a therapist who has the same room on both sides of it.
-  // The sides can come from the new time itself or from the therapist's own times that day.
-  if (from < workBlocks[0][0] || to > workBlocks.at(-1)[1]) {
-    return { status: 400, error: 'Velg en tid mellom ' + workBlocks[0][0] + ' og ' + workBlocks.at(-1)[1] + '.' };
-  }
-  const segments = [period, ...own.flatMap(p => p.slots)].map(s => ({ start: s.start.slice(0, 19), end: s.end.slice(0, 19) }));
-  const pauses = workBlocks.slice(0, -1).map(([, end], i) => ({ start: date + 'T' + end + ':00', end: date + 'T' + workBlocks[i + 1][0] + ':00' }));
-  const unbridged = pauses.filter(pause => overlaps(pause, period)).some(pause =>
-    !segments.some(s => s.start < pause.start && s.end >= pause.start)
-    || !segments.some(s => s.end > pause.end && s.start <= pause.end));
-  if (unbridged) return { status: 400, error: 'Tiden går inn i en pause mellom bolkene. Det går bare når du har samme rom både før og etter pausen.' };
+  const pause = pauseError(date, from, to, period, own.flatMap(p => p.slots));
+  if (pause) return { status: 400, error: pause };
   return null;
 }
 
