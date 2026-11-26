@@ -295,10 +295,15 @@ function pauseError(date, from, to, period, segments) {
     return 'Velg en tid mellom ' + workBlocks[0][0] + ' og ' + workBlocks.at(-1)[1] + '.';
   }
   const parts = [period, ...segments].map(s => ({ start: s.start.slice(0, 19), end: s.end.slice(0, 19) }));
-  const pauses = workBlocks.slice(0, -1).map(([, end], i) => ({ start: date + 'T' + end + ':00', end: date + 'T' + workBlocks[i + 1][0] + ':00' }));
+  const at = clock => date + 'T' + clock + ':00';
+  const pauses = workBlocks.slice(0, -1).map(([blockStart, end], i) => ({
+    start: at(end), end: at(workBlocks[i + 1][0]), before: { start: at(blockStart), end: at(end) },
+    after: { start: at(workBlocks[i + 1][0]), end: at(workBlocks[i + 1][1]) },
+  }));
+  // Someone with the room both earlier in the block before and later in the block after holds the whole span,
+  // so the overlap checks already keep everyone else out of the pause.
   const unbridged = pauses.filter(pause => overlaps(pause, period)).some(pause =>
-    !parts.some(s => s.start < pause.start && s.end >= pause.start)
-    || !parts.some(s => s.end > pause.end && s.start <= pause.end));
+    !parts.some(s => overlaps(s, pause.before)) || !parts.some(s => overlaps(s, pause.after)));
   return unbridged ? 'Tiden går inn i en pause mellom bolkene. Det går bare når samme rom er booket både før og etter pausen.' : null;
 }
 
