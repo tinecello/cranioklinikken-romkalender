@@ -375,11 +375,17 @@ function slotConflict(week, rows, { scheduleId, room, date, from, to, period, ig
       || week.issues.some(issue => issue.type === 'unknown' && overlaps(issue,envelope))) {
     return { status: 409, error: 'Tiden overlapper en arbeidstid i Wix. Eventuelle ufordelte tider må få et rom først.' };
   }
-  const withinBlock = workBlocks.some(([start, end]) => from >= start && to <= end);
-  const bridge = workBlocks.slice(0, -1).some(([, end], i) => from === end && to === workBlocks[i + 1][0]
-    && hours.some(hour => hour.scheduleId === scheduleId && hour.room === room && hour.end === period.start)
-    && hours.some(hour => hour.scheduleId === scheduleId && hour.room === room && hour.start === period.end));
-  if (!withinBlock && !bridge) return { status: 400, error: 'Velg en tid innenfor en bolk eller mellom to av dine bolker i samme rom.' };
+  // A pause between two blocks may be used only by a therapist who has the same room on both sides of it.
+  // The sides can come from the new time itself or from the therapist's own times that day.
+  if (from < workBlocks[0][0] || to > workBlocks.at(-1)[1]) {
+    return { status: 400, error: 'Velg en tid mellom ' + workBlocks[0][0] + ' og ' + workBlocks.at(-1)[1] + '.' };
+  }
+  const segments = [period, ...own.flatMap(p => p.slots)].map(s => ({ start: s.start.slice(0, 19), end: s.end.slice(0, 19) }));
+  const pauses = workBlocks.slice(0, -1).map(([, end], i) => ({ start: date + 'T' + end + ':00', end: date + 'T' + workBlocks[i + 1][0] + ':00' }));
+  const unbridged = pauses.filter(pause => overlaps(pause, period)).some(pause =>
+    !segments.some(s => s.start < pause.start && s.end >= pause.start)
+    || !segments.some(s => s.end > pause.end && s.start <= pause.end));
+  if (unbridged) return { status: 400, error: 'Tiden går inn i en pause mellom bolkene. Det går bare når du har samme rom både før og etter pausen.' };
   return null;
 }
 
