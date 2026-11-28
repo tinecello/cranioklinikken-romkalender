@@ -1,0 +1,567 @@
+<!doctype html>
+<html lang="nb">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Cranioklinikken · Romkalender</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@500&family=Inter:wght@400;500;600&display=swap">
+<style>
+:root{--paper:#FBF9F5;--card:#FFFFFF;--ink:#1E2B2B;--muted:#5E6663;--line:#E7E2D9;--line2:#F3F0EA;--green:#1F4A47;--copper:#C08457;--danger:#8A2F22;
+--m-tint:#F4E7DF;--m-edge:#E2C8B8;--m-deep:#7A4733;--m-ink:#6A3A27;--m-dot:#C98A6C;
+--x-tint:#E4EEF1;--x-edge:#C3D6DC;--x-deep:#2E5664;--x-ink:#24505E;--x-dot:#5E93A3;
+--t-tint:#EFEAF5;--t-edge:#D8CFE6;--t-ink:#4E4362;--serif:'Cormorant Garamond',Georgia,serif;--sans:Inter,system-ui,sans-serif}
+*{box-sizing:border-box}
+body{margin:0;background:var(--paper);color:var(--ink);font:15px/1.45 var(--sans)}
+button,input,select{font:inherit;color:inherit}
+button{cursor:pointer}
+:focus-visible{outline:2.5px solid var(--copper);outline-offset:2px}
+[hidden]{display:none!important}
+a{color:inherit}
+.top{display:flex;align-items:center;gap:14px;padding:12px clamp(16px,3vw,40px);background:var(--card);border-bottom:1px solid var(--line);flex-wrap:wrap}
+.top img{width:34px;height:34px}
+.brand{font-family:var(--serif);font-size:22px}
+.eyebrow{font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:var(--muted)}
+.top .eyebrow{padding-left:14px;border-left:1px solid var(--line)}
+.tabs{display:flex;gap:4px;margin-left:12px}
+.tab{border:0;background:transparent;padding:8px 12px;border-radius:999px;color:var(--muted);font-size:14px}
+.tab[aria-current=page]{background:#F1ECE4;color:var(--ink)}
+.who{margin-left:auto;display:flex;align-items:center;gap:14px;font-size:13px;color:var(--muted)}
+.link{border:0;background:none;padding:6px 2px;text-decoration:underline;text-underline-offset:3px;color:var(--muted);font-size:13px}
+main{max-width:1440px;margin:0 auto;padding:28px clamp(16px,3vw,40px) 56px}
+h1,h2,h3{margin:0;font-weight:500}
+h1{font-family:var(--serif);font-size:clamp(34px,4vw,46px);line-height:1;letter-spacing:-.01em}
+h2{font-family:var(--serif);font-size:28px;line-height:1.1}
+h3{font-size:12px;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);font-weight:500}
+.btn{min-height:44px;padding:0 18px;border-radius:999px;border:1px solid var(--line);background:var(--card);font-size:14px;display:inline-flex;align-items:center;justify-content:center;gap:6px}
+.btn.primary{background:var(--green);border-color:var(--green);color:#fff}
+.btn.danger{color:var(--danger);border-color:#D9CFC4}
+.btn.round{width:40px;min-height:40px;padding:0}
+.btn:disabled{opacity:.55;cursor:default}
+.card{background:var(--card);border:1px solid var(--line);border-radius:14px}
+/* login */
+.login{max-width:420px;margin:8vh auto 0;padding:32px;display:flex;flex-direction:column;gap:16px}
+.login p{margin:0;color:var(--muted)}
+label.field{display:flex;flex-direction:column;gap:6px;font-size:13px;color:var(--muted)}
+input,select{min-height:44px;padding:8px 12px;border:1px solid #D6D0C6;border-radius:10px;background:#fff;color:var(--ink);font-size:15px;width:100%}
+#status{min-height:1.4em;color:var(--danger);margin:12px 0 0}
+/* toolbar */
+.toolbar{display:flex;align-items:flex-end;gap:18px;flex-wrap:wrap;margin-bottom:16px}
+.weeknav{display:flex;gap:6px}
+.toolbar .actions{margin-left:auto;display:flex;gap:10px;flex-wrap:wrap}
+.legend{display:flex;gap:18px;flex-wrap:wrap;font-size:12px;color:var(--muted);margin:0 0 16px}
+.legend span{display:inline-flex;align-items:center;gap:6px}
+.legend .hint{margin-left:auto}.legend i{width:11px;height:11px;border-radius:3px;border:1px solid}
+.note{font-size:13px;color:var(--muted);margin:-8px 0 14px}
+.layout{display:flex;gap:28px;align-items:flex-start;flex-wrap:wrap}
+.board{flex:999 1 640px;min-width:0;padding:18px 18px 12px 6px;overflow-x:auto}
+aside.side{flex:1 1 280px;max-width:360px;padding:22px;display:flex;flex-direction:column;gap:20px}
+.side section{display:flex;flex-direction:column;gap:8px}
+.side section+section{border-top:1px solid var(--line);padding-top:16px}
+.row{display:flex;justify-content:space-between;gap:10px;font-size:14px;align-items:center;width:100%;text-align:left;border:0;background:none;padding:6px 0;min-height:36px}
+button.row:hover{color:var(--green)}
+.empty{color:var(--muted);font-size:14px;margin:0}
+/* week grid */
+.week{display:grid;grid-template-columns:52px repeat(7,minmax(0,1fr));min-width:760px}
+.dayhead{padding:0 0 10px 8px;display:flex;flex-direction:column;gap:3px}
+.dayhead .num{font-family:var(--serif);font-size:26px;line-height:1}
+.dayhead.today .num{background:var(--green);color:#fff;border-radius:999px;width:36px;height:36px;display:flex;align-items:center;justify-content:center;font-size:22px}
+.hours div{font-size:11px;color:var(--muted);text-align:right;padding-right:10px;transform:translateY(-7px)}
+.lanes{position:relative;border-left:1px solid #DCD5CA;background-image:repeating-linear-gradient(to bottom,var(--line) 0 1px,transparent 1px var(--h)),linear-gradient(to right,transparent calc(50% - .5px),var(--line2) calc(50% - .5px) calc(50% + .5px),transparent calc(50% + .5px))}
+.lanes.past{background-color:#FAF8F4}
+.lanefoot{display:flex;justify-content:space-around;font-size:10px;color:var(--muted);padding-top:6px}
+.blk{position:absolute;border-radius:6px;padding:5px 6px;text-align:left;display:flex;flex-direction:column;gap:1px;overflow:hidden;font-size:11.5px;line-height:1.25;border:1px solid}
+.blk strong{font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.blk small{font-size:10.5px;opacity:.9}
+.blk .tag{font-size:9.5px;letter-spacing:.06em;text-transform:uppercase;opacity:.85}
+.blk.m{left:3px;right:calc(50% + 2px);background:var(--m-tint);border-color:var(--m-edge);color:var(--m-ink)}
+.blk.x{left:calc(50% + 2px);right:3px;background:var(--x-tint);border-color:var(--x-edge);color:var(--x-ink)}
+.blk.both{left:3px;right:3px;background:repeating-linear-gradient(135deg,#F1EFEB 0 6px,#fff 6px 9px);border-color:#D6D0C6;color:var(--ink)}
+.blk.m.own{background:var(--m-deep);border-color:var(--m-deep);color:#fff}
+.blk.x.own{background:var(--x-deep);border-color:var(--x-deep);color:#fff}
+.blk.rent.m{background:repeating-linear-gradient(135deg,var(--m-tint) 0 6px,#fff 6px 9px)}
+.blk.rent.x{background:repeating-linear-gradient(135deg,var(--x-tint) 0 6px,#fff 6px 9px)}
+.blk.pending{border-style:dashed;background:#fff}
+.blk:hover{filter:brightness(.97)}
+.free{position:absolute;border:1px dashed transparent;background:transparent;border-radius:6px;color:transparent;font-size:11px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:1px;padding:0}
+.free.m{left:3px;right:calc(50% + 2px)}.free.x{left:calc(50% + 2px);right:3px}
+.free:hover,.free:focus-visible{background:#fff;border-color:#9DB3B9;color:var(--x-ink)}
+.free.m:hover,.free.m:focus-visible{border-color:#CFA894;color:var(--m-ink)}
+.free b{font-size:16px;line-height:1;font-weight:400}
+.temple{position:absolute;left:0;right:0;background:var(--t-tint);border-top:1px solid var(--t-edge);border-bottom:1px solid var(--t-edge);font-size:10.5px;color:var(--t-ink);padding:3px 6px;display:flex;align-items:flex-end;overflow:hidden}
+.nowline{position:absolute;left:-4px;right:0;border-top:1.5px solid var(--copper);z-index:3;pointer-events:none}
+.nowline::before{content:"";position:absolute;left:-4px;top:-4.5px;width:8px;height:8px;border-radius:50%;background:var(--copper)}
+/* mobile */
+.mob{display:none}
+.strip{display:flex;gap:2px;margin:0 -4px 12px}
+.strip button{flex:1;min-width:0;height:64px;border:0;border-radius:14px;background:transparent;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;padding:0}
+.strip button[aria-pressed=true]{background:var(--green);color:#fff}
+.strip .d{font-size:11px;opacity:.85}.strip .n{font-size:17px;font-weight:600}
+.dots{display:flex;gap:3px;height:6px}.dots i{width:6px;height:6px;border-radius:50%}
+.mobhead{display:flex;align-items:center;gap:10px;margin-bottom:8px}
+.mobhead h2{font-family:var(--sans);font-size:20px;font-weight:600}
+.mobrooms{display:flex;padding-left:40px;font-size:12px;font-weight:600;margin-bottom:6px}
+.mobrooms span{flex:1;display:flex;align-items:center;gap:6px}
+.mobrooms i{width:8px;height:8px;border-radius:50%}
+.mobgrid{display:grid;grid-template-columns:40px minmax(0,1fr)}
+.mob .lanes{border-left:0}
+.mob .blk{border-radius:12px;padding:8px 9px;font-size:13px}
+.mob .blk small{font-size:12px}
+.mob .free{color:var(--muted);border-color:#D6D0C6;background:#fff;font-size:12px;border-radius:12px}
+.mob .free.m{color:var(--m-ink)}.mob .free.x{color:var(--x-ink)}
+@media (max-width:820px){.desk{display:none}.mob{display:block}.board{padding:16px 12px;overflow:visible}aside.side{max-width:none}.top .eyebrow,#roleLabel,.legend,#newRental{display:none}.tabs{order:3;width:100%;margin:0}.who{margin-left:auto}.toolbar{gap:12px}.toolbar>div:first-child{width:100%}.toolbar .actions{margin-left:auto}.toolbar .btn{min-height:40px}.brand{font-size:20px}main{padding-top:20px}}
+/* admin */
+.admin{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,380px),1fr));gap:24px;align-items:start}
+.admin .card{padding:24px;display:flex;flex-direction:column;gap:14px}
+.admin form{display:flex;flex-direction:column;gap:12px}
+.list{list-style:none;margin:0;padding:0;display:flex;flex-direction:column}
+.list li{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:10px 0;border-top:1px solid var(--line);font-size:14px}
+.list li small{color:var(--muted);display:block}
+/* sheet */
+dialog.sheet{margin:0;inset:0 0 0 auto;height:100dvh;max-height:none;width:min(420px,100vw);max-width:none;border:0;border-left:1px solid var(--line);padding:0;background:var(--card);color:var(--ink)}
+dialog::backdrop{background:#1027254d}
+.sheetin{padding:28px;display:flex;flex-direction:column;gap:16px;min-height:100%}
+.sheetin header{display:flex;align-items:flex-start;gap:12px}
+.sheetin header div{flex:1;display:flex;flex-direction:column;gap:4px}
+.sheetin .close{margin-left:auto}
+.warn{margin:0;font-size:13px;color:#6B4A2E;background:#FBF1E6;border-radius:8px;padding:10px 12px}
+.check{display:flex;gap:10px;align-items:flex-start;font-size:14px}
+.check input{width:20px;min-height:20px;height:20px;margin:1px 0 0;flex:none}
+.btns .btn{justify-content:center}.pair{display:flex;gap:10px}.pair>*{flex:1}
+.btns{display:flex;gap:10px;flex-wrap:wrap}.btns .btn{flex:1}
+.msg{min-height:1.3em;margin:0;font-size:14px;color:var(--danger)}
+.choice{display:flex;flex-direction:column;gap:10px}
+.choice .btn{justify-content:flex-start;border-radius:12px;min-height:56px;padding:0 18px}
+.slotrow{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:8px 0;border-top:1px solid var(--line);font-size:14px}
+.slotrow select{width:auto;min-height:38px}
+@media (max-width:820px){dialog.sheet{inset:auto 0 0 0;width:100%;height:auto;max-height:88dvh;border-left:0;border-radius:20px 20px 0 0}.sheetin{padding:22px 18px 28px}}
+@media (max-width:820px){.long{display:none}}
+dialog.confirm{border:1px solid var(--line);border-radius:14px;padding:22px;max-width:min(92vw,400px)}
+#toast{position:fixed;left:50%;bottom:24px;transform:translateX(-50%);background:var(--green);color:#fff;padding:12px 18px;border-radius:12px;box-shadow:0 6px 20px #0003;z-index:20;margin:0;max-width:90vw}
+</style></head>
+<body>
+<header class="top">
+<img alt="" src="data:image/png;base64,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"><span class="brand">Cranioklinikken</span><span class="eyebrow">Romkalender</span>
+<nav class="tabs" id="tabs" hidden aria-label="Visning"><button class="tab" id="tabCal" aria-current="page">Kalender</button><button class="tab" id="tabAdmin" hidden>Administrer</button></nav>
+<div class="who" id="who" hidden><span id="roleLabel"></span><button class="link" id="logout">Logg ut</button></div>
+</header>
+<main>
+<form id="login" class="card login">
+<h2>Logg inn</h2>
+<p>Du får en innloggingslenke på e-post.</p>
+<label class="field" for="email">E-postadresse<input id="email" type="email" autocomplete="email" required></label>
+<button type="submit" class="btn primary" id="loginButton">Send innloggingslenke</button>
+<button type="button" class="btn primary" id="finishLogin" hidden>Fullfør innlogging</button>
+</form>
+
+<section id="calendar" hidden>
+<div class="toolbar">
+<div><div class="eyebrow" id="weekNo"></div><h1 id="weekTitle"></h1></div>
+<div class="weeknav"><button class="btn round" id="prev" aria-label="Forrige uke">‹</button><button class="btn" id="todayBtn">I dag</button><button class="btn round" id="next" aria-label="Neste uke">›</button></div>
+<div class="actions"><button class="btn" id="newRental" hidden>+ Romleie</button><button class="btn primary" id="newHours" hidden>+ Ny<span class="long"> arbeidstid</span></button></div>
+</div>
+<div class="legend"><span><i style="background:var(--m-tint);border-color:var(--m-edge)"></i>Mandibula</span><span><i style="background:var(--x-tint);border-color:var(--x-edge)"></i>Maxilla</span><span><i style="background:var(--x-deep);border-color:var(--x-deep)"></i>Din tid</span><span><i style="background:repeating-linear-gradient(135deg,var(--m-tint) 0 3px,#fff 3px 5px);border-color:var(--m-edge)"></i>Romleie</span><span><i style="background:var(--t-tint);border-color:var(--t-edge)"></i>Templet</span><span class="hint" id="hint" hidden>Klikk i et tomt felt for å reservere</span></div>
+<p class="note" id="roomNote"></p>
+<div class="layout">
+<section class="card board" aria-label="Romoversikt"><div class="desk" id="desk"></div><div class="mob" id="mob"></div></section>
+<aside class="card side" id="side"></aside>
+</div>
+</section>
+
+<section id="admin" hidden>
+<div class="toolbar"><div><div class="eyebrow">Romkalender</div><h1>Administrer</h1></div></div>
+<div class="admin">
+<section class="card" id="tenantAdmin" hidden><h2>Leietakere</h2><p class="empty">Leietakere kan reservere rom som romleie. Romleie lagres bare i romkalenderen.</p>
+<form id="tenantForm"><label class="field" for="tenantName">Ny leietaker<input id="tenantName" maxlength="60" required></label><button class="btn primary">Legg til leietaker</button></form>
+<p class="msg" id="tenantStatus" role="status"></p><ul class="list" id="tenantList"></ul></section>
+<section class="card" id="memberAdmin" hidden><h2>Brukere</h2><p class="empty">Å gi tilgang sender ingen e-post. Personen logger inn med sin adresse.</p>
+<form id="memberForm"><label class="field" for="memberName">Navn<input id="memberName" maxlength="60" required></label>
+<label class="field" for="memberEmail">E-postadresse<input id="memberEmail" type="email" maxlength="254" required></label>
+<label class="field" for="memberRole">Rolle<select id="memberRole"><option value="therapist">Terapeut</option><option value="rental-manager">Romansvarlig</option></select></label>
+<button class="btn primary">Gi tilgang</button></form>
+<p class="msg" id="memberStatus" role="status"></p><ul class="list" id="members"></ul></section>
+<section class="card" id="issueAdmin" hidden><h2>Arbeidstid i Wix til gjennomgang</h2><p class="empty">Avvik i Wix endres ikke av romkalenderen.</p><ul class="list" id="issueList"></ul></section>
+</div>
+</section>
+<p id="status" role="status" aria-live="polite"></p>
+</main>
+<dialog class="sheet" id="sheet" aria-labelledby="sheetTitle"><div class="sheetin" id="sheetBody"></div></dialog>
+<dialog class="confirm" id="confirmDialog"><p id="confirmText"></p><div class="btns"><button type="button" class="btn primary" id="confirmYes">Ja</button><button type="button" class="btn" id="confirmNo">Avbryt</button></div></dialog>
+<p id="toast" role="status" aria-live="polite" hidden></p>
+<script>
+const $=id=>document.getElementById(id);
+const el=(tag,props={},...kids)=>{
+ const n=document.createElement(tag);
+ for(const [k,v] of Object.entries(props)){
+  if(v==null||v===false)continue;
+  if(k==='class')n.className=v;
+  else if(k==='style')n.style.cssText=v;
+  else if(k.startsWith('on'))n[k]=v;
+  else if(['type','value','disabled','checked','hidden','required','min','max','htmlFor','id','maxLength','textContent'].includes(k))n[k]=v;
+  else n.setAttribute(k,v===true?'':v);
+ }
+ for(const c of kids.flat()){if(c==null||c===false)continue;n.append(c.nodeType?c:document.createTextNode(c));}
+ return n;
+};
+const osloParts=new Intl.DateTimeFormat('sv-SE',{timeZone:'Europe/Oslo',year:'numeric',month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit',second:'2-digit',hourCycle:'h23'});
+const nowLocal=()=>osloParts.format(new Date()).replace(' ','T');
+const dateFormat=new Intl.DateTimeFormat('sv-SE',{timeZone:'Europe/Oslo',year:'numeric',month:'2-digit',day:'2-digit'});
+const timeFormat=new Intl.DateTimeFormat('nb-NO',{timeZone:'Europe/Oslo',hour:'2-digit',minute:'2-digit'});
+const short=new Intl.DateTimeFormat('nb-NO',{weekday:'short',day:'numeric',timeZone:'UTC'});
+const wd=new Intl.DateTimeFormat('nb-NO',{weekday:'short',timeZone:'UTC'});
+const longDay=new Intl.DateTimeFormat('nb-NO',{weekday:'long',day:'numeric',month:'long',timeZone:'UTC'});
+const dayMonth=new Intl.DateTimeFormat('nb-NO',{day:'numeric',month:'long',timeZone:'UTC'});
+const cap=s=>s.charAt(0).toUpperCase()+s.slice(1);
+const today=dateFormat.format(new Date());
+const shift=(day,n)=>new Date(Date.parse(day+'T12:00:00Z')+n*86400000).toISOString().slice(0,10);
+const D=day=>new Date(day+'T12:00:00Z');
+let week=shift(today,-((D(today).getUTCDay()+6)%7));
+let mobileDay=today;
+let data=null,revision=0,view='calendar';
+const roomLabels={mandibula:'Mandibula',maxilla:'Maxilla'};
+const roomKey={mandibula:'m',maxilla:'x'};
+const bookingBlocks=[['08:00','12:30'],['12:45','17:15'],['17:30','22:00']];
+const toMin=t=>{const [h,m]=t.split(':').map(Number);return h*60+m;};
+const span=(a,b)=>a+'–'+b;
+
+async function api(body){
+ const response=await fetch('/api/calendar'+(body?'':'?week='+week),body?{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)}:{});
+ const json=await response.json();
+ return {status:response.status,data:json};
+}
+function toast(text){const t=$('toast');t.textContent=text;t.hidden=false;clearTimeout(toast.timer);toast.timer=setTimeout(()=>{t.hidden=true;},5000);}
+function confirmBox(text){
+ return new Promise(resolve=>{
+  const d=$('confirmDialog');$('confirmText').textContent=text;
+  const done=v=>{d.close();resolve(v);};
+  $('confirmYes').onclick=()=>done(true);$('confirmNo').onclick=()=>done(false);
+  d.oncancel=e=>{e.preventDefault();done(false);};
+  d.showModal();$('confirmNo').focus();
+ });
+}
+function isoWeek(day){
+ const d=D(day);const n=(d.getUTCDay()+6)%7;d.setUTCDate(d.getUTCDate()-n+3);
+ const first=new Date(Date.UTC(d.getUTCFullYear(),0,4));
+ return 1+Math.round(((d-first)/86400000-3+((first.getUTCDay()+6)%7))/7);
+}
+function weekTitle(){
+ const a=D(week),b=D(shift(week,6));
+ return a.getUTCMonth()===b.getUTCMonth()?a.getUTCDate()+'.–'+dayMonth.format(b):dayMonth.format(a)+' – '+dayMonth.format(b);
+}
+function dayEntries(list,day){
+ const start=day+'T00:00:00',end=shift(day,1)+'T00:00:00';
+ return list.filter(x=>x.start<end&&x.end>start).map(x=>({...x,s:x.start<start?'00:00':x.start.slice(11,16),e:x.end>=end?'24:00':x.end.slice(11,16)})).sort((a,b)=>a.s.localeCompare(b.s));
+}
+function freeIntervals(rows){
+ return bookingBlocks.flatMap(([start,end])=>{
+  const free=[];let cursor=start;
+  for(const r of rows){if(r.e<=cursor||r.s>=end)continue;if(r.s>cursor)free.push([cursor,r.s]);if(r.e>cursor)cursor=r.e;}
+  if(cursor<end)free.push([cursor,end]);
+  return free.filter(([a,b])=>toMin(b)-toMin(a)>=15);
+ });
+}
+function templeDay(day){
+ return (Array.isArray(data.temple)?data.temple:[]).flatMap(ev=>{
+  const s=new Date(ev.start),e=new Date(ev.end);
+  const first=dateFormat.format(s),last=dateFormat.format(new Date(e.getTime()-1));
+  if(day<first||day>last)return [];
+  return [{title:ev.title,s:day===first?timeFormat.format(s):'00:00',e:day===dateFormat.format(e)?timeFormat.format(e):'24:00'}];
+ });
+}
+function entries(){
+ const unknown=(data.unassignedBlocks??[]).map(b=>({...b,name:'Uavklart Wix-tid',unknown:true}));
+ return [...data.hours,...unknown];
+}
+const canBook=()=>data.reservationEnabled||Array.isArray(data.tenants);
+const canAssign=()=>data.roomsEnabled&&data.role==='admin';
+const range=()=>[8,22];
+function lanes(day,H,[h0,h1],mobile){
+ const top=t=>Math.round((Math.min(Math.max(toMin(t),h0*60),h1*60)-h0*60)/60*H);
+ const inView=x=>toMin(x.e)>h0*60&&toMin(x.s)<h1*60;
+ const box=el('div',{class:'lanes'+(day<today?' past':''),style:`height:${(h1-h0)*H}px;--h:${H}px`});
+ for(const t of templeDay(day).filter(inView))box.append(el('div',{class:'temple',style:`top:${top(t.s)}px;height:${top(t.e)-top(t.s)}px`},'Templet · '+t.title));
+ const rows=dayEntries(entries(),day);
+ if(data.roomsEnabled&&canBook()&&day>=today){
+  const unknown=rows.filter(r=>r.unknown);
+  for(const room of ['mandibula','maxilla']){
+   const blocking=rows.filter(r=>r.room===room||!r.room).concat(unknown).sort((a,b)=>a.s.localeCompare(b.s));
+   for(let [a,b] of freeIntervals(blocking)){
+    if(day===today){const n=nowLocal().slice(11,16);if(b<=n)continue;if(a<n){const q=Math.ceil(toMin(n)/15)*15;a=String(Math.floor(q/60)).padStart(2,'0')+':'+String(q%60).padStart(2,'0');if(toMin(b)-q<15)continue;}}
+    const h=top(b)-top(a)-4;
+    box.append(el('button',{type:'button',class:'free '+roomKey[room],style:`top:${top(a)+2}px;height:${h}px`,'aria-label':'Ledig '+span(a,b)+' i '+roomLabels[room]+', reserver',onclick:()=>openFree(room,day,a,b)},
+     el('b',{},'+'),h>=40?(mobile?'Ledig':'Reserver'):null,h>=56?el('span',{},span(a,b)):null));
+   }
+  }
+ }
+ for(const r of rows.filter(inView)){
+  const k=r.room?roomKey[r.room]:'both';
+  const cls=['blk',k,r.own?'own':'',r.rental||r.tenant?'rent':'',r.name==='Avventer Wix'?'pending':''].join(' ');
+  const h=top(r.e)-top(r.s)-2;
+  box.append(el('button',{type:'button',class:cls,style:`top:${top(r.s)+1}px;height:${h}px`,'aria-label':r.name+', '+span(r.s,r.e)+(r.room?', '+roomLabels[r.room]:''),onclick:()=>openItem(r)},
+   el('strong',{},r.name),h>=30?el('small',{},span(r.s,r.e)):null));
+ }
+ if(day===today){const n=nowLocal().slice(11,16);if(toMin(n)>=h0*60&&toMin(n)<=h1*60)box.append(el('div',{class:'nowline',style:`top:${top(n)}px`}));}
+ return box;
+}
+function renderDesk(rg){
+ const days=Array.from({length:7},(_,i)=>shift(week,i));
+ const g=el('div',{class:'week'});
+ g.append(el('div'));
+ for(const day of days)g.append(el('div',{class:'dayhead'+(day===today?' today':'')},el('span',{class:'eyebrow'},wd.format(D(day)).replace('.','')),el('span',{class:'num'},String(D(day).getUTCDate()))));
+ const hours=el('div',{class:'hours'});
+ for(let h=rg[0];h<rg[1];h++)hours.append(el('div',{style:'height:44px'},String(h).padStart(2,'0')+':00'));
+ g.append(hours);
+ for(const day of days)g.append(lanes(day,44,rg,false));
+ g.append(el('div'));
+ for(const day of days)g.append(el('div',{class:'lanefoot'},el('span',{},'Mandibula'),el('span',{},'Maxilla')));
+ $('desk').replaceChildren(g);
+}
+function renderMob(rg){
+ const days=Array.from({length:7},(_,i)=>shift(week,i));
+ if(!days.includes(mobileDay))mobileDay=days.includes(today)?today:week;
+ const strip=el('nav',{class:'strip','aria-label':'Velg dag'});
+ for(const day of days){
+  const rows=dayEntries(entries(),day);
+  strip.append(el('button',{type:'button','aria-pressed':String(day===mobileDay),'aria-label':longDay.format(D(day)),onclick:()=>{mobileDay=day;renderMob(rg);}},
+   el('span',{class:'d'},wd.format(D(day)).replace('.','')),el('span',{class:'n'},String(D(day).getUTCDate())),
+   el('span',{class:'dots'},rows.some(r=>r.room==='mandibula')?el('i',{style:'background:var(--m-dot)'}):null,rows.some(r=>r.room==='maxilla')?el('i',{style:'background:var(--x-dot)'}):null)));
+ }
+ const head=el('div',{class:'mobhead'},el('h2',{},cap(longDay.format(D(mobileDay)))));
+ const hours=el('div',{class:'hours'});
+ for(let h=rg[0];h<rg[1];h++)hours.append(el('div',{style:'height:32px'},String(h).padStart(2,'0')));
+ $('mob').replaceChildren(strip,head,
+  el('div',{class:'mobrooms'},el('span',{style:'color:var(--m-ink)'},el('i',{style:'background:var(--m-dot)'}),'Mandibula'),el('span',{style:'color:var(--x-ink)'},el('i',{style:'background:var(--x-dot)'}),'Maxilla')),
+  el('div',{class:'mobgrid'},hours,lanes(mobileDay,32,rg,true)));
+}
+function renderSide(){
+ const side=$('side');side.replaceChildren();
+ const days=Array.from({length:7},(_,i)=>shift(week,i));
+ const label=x=>cap(short.format(D(x.start.slice(0,10)))).replace('.','');
+ if(['admin','therapist'].includes(data.role)){
+  const own=data.hours.filter(h=>h.own).sort((a,b)=>a.start.localeCompare(b.start));
+  side.append(el('section',{},el('h3',{},'Dine tider denne uken'),
+   own.length?own.map(h=>el('button',{type:'button',class:'row',onclick:()=>openItem({...h,s:h.start.slice(11,16),e:h.end.slice(11,16)})},el('span',{},label(h)),el('span',{},span(h.start.slice(11,16),h.end.slice(11,16))+(h.room?' · '+roomLabels[h.room]:'')))):el('p',{class:'empty'},'Ingen registrerte tider denne uken.')));
+ }
+ if(Array.isArray(data.tenants)){
+  const rent=data.hours.filter(h=>h.rental).sort((a,b)=>a.start.localeCompare(b.start));
+  side.append(el('section',{},el('h3',{},'Romleie denne uken'),
+   rent.length?rent.map(h=>el('button',{type:'button',class:'row',onclick:()=>openItem({...h,s:h.start.slice(11,16),e:h.end.slice(11,16)})},el('span',{},label(h)+' '+h.name),el('span',{},span(h.start.slice(11,16),h.end.slice(11,16))))):el('p',{class:'empty'},'Ingen romleie denne uken.')));
+ }
+ const temple=days.flatMap(day=>templeDay(day).map(t=>({...t,day})));
+ side.append(el('section',{},el('h3',{},'Templet'),
+  !Array.isArray(data.temple)?el('p',{class:'empty'},'Stillepunkt-kalenderen er midlertidig utilgjengelig.'):
+  temple.length?temple.map(t=>el('div',{class:'row'},el('span',{},cap(short.format(D(t.day))).replace('.','')+' '+t.title),el('span',{},span(t.s,t.e)))):el('p',{class:'empty'},'Ingen arrangementer denne uken.')));
+}
+function render(){
+ $('weekNo').textContent='Uke '+isoWeek(week);
+ $('weekTitle').textContent=weekTitle();
+ $('roomNote').textContent=data.roomsEnabled?'':'Romfordelingen er midlertidig utilgjengelig.';
+ $('roomNote').hidden=data.roomsEnabled;
+ $('newHours').hidden=!data.reservationEnabled;
+ $('hint').hidden=!(data.roomsEnabled&&canBook());
+ $('newRental').hidden=!(Array.isArray(data.tenants)&&data.roomsEnabled);
+ const rg=range();
+ renderDesk(rg);renderMob(rg);renderSide();renderAdmin();
+}
+
+/* ---------- sheet ---------- */
+function sheet(title,sub,...content){
+ const close=el('button',{type:'button',class:'btn round close','aria-label':'Lukk',onclick:closeSheet},'×');
+ $('sheetBody').replaceChildren(el('header',{},el('div',{},sub?el('span',{class:'eyebrow'},sub):null,el('h2',{id:'sheetTitle'},title)),close),...content);
+ const d=$('sheet');if(!d.open)d.showModal();
+ const first=$('sheetBody').querySelector('input,select,.choice button');(first??close).focus();
+}
+function closeSheet(){$('sheet').close();}
+$('sheet').addEventListener('click',e=>{if(e.target===$('sheet'))closeSheet();});
+const field=(text,input)=>el('label',{class:'field'},text,input);
+function timeFields(day,from,to,room){
+ const r=el('select',{},...Object.entries(roomLabels).map(([v,t])=>el('option',{value:v},t)));r.value=room??'mandibula';
+ const d=el('input',{type:'date',required:true,min:week,max:shift(week,6),value:day});
+ const f=el('input',{type:'time',required:true,value:from??''});const t=el('input',{type:'time',required:true,value:to??''});
+ return {r,d,f,t,els:[field('Rom',r),field('Dato',d),el('div',{class:'pair'},field('Fra',f),field('Til',t))]};
+}
+async function submit(form,msg,input,success,onOk){
+ const buttons=[...form.querySelectorAll('button')];buttons.forEach(b=>b.disabled=true);
+ msg.textContent='Lagrer …';
+ try{
+  const {status,data:res}=await api(input);
+  if(status!==200){msg.textContent=res.error??'Det gikk ikke. Prøv igjen.';return false;}
+  onOk?.();closeSheet();await load();toast(success);return true;
+ }catch{msg.textContent='Svaret kom ikke frem. Lukk, last siden på nytt og sjekk før du prøver igjen.';return false;}
+ finally{buttons.forEach(b=>b.disabled=false);}
+}
+function openFree(room,day,a,b){
+ const work=data.reservationEnabled,rent=Array.isArray(data.tenants);
+ if(work&&!rent)return openReserve(room,day,a,b);
+ if(rent&&!work)return openRental(null,room,day,a,b);
+ sheet('Ledig '+span(a,b),cap(longDay.format(D(day)))+' · '+roomLabels[room],
+  el('div',{class:'choice'},
+   el('button',{type:'button',class:'btn primary',onclick:()=>openReserve(room,day,a,b)},'Registrer arbeidstid'),
+   el('button',{type:'button',class:'btn',onclick:()=>openRental(null,room,day,a,b)},'Reserver som romleie')));
+}
+function openReserve(room,day,a,b){
+ const tf=timeFields(day??(week<=today&&today<=shift(week,6)?today:week),a,b,room);
+ const msg=el('p',{class:'msg',role:'status'});
+ const form=el('form',{class:'choice'},...tf.els,el('p',{class:'empty'},'Tiden legges inn som arbeidstid i Wix, slik at kunder kan booke den.'),msg,el('div',{class:'btns'},el('button',{class:'btn primary'},'Reserver')));
+ form.onsubmit=e=>{
+  e.preventDefault();
+  const input={action:'reserve-room',week,room:tf.r.value,date:tf.d.value,from:tf.f.value,to:tf.t.value};
+  const key='cranio-reservation:'+JSON.stringify(input);
+  let id=sessionStorage.getItem(key);
+  if(!id){id=crypto.randomUUID();sessionStorage.setItem(key,id);}
+  submit(form,msg,{...input,id},'Arbeidstiden er registrert.');
+ };
+ sheet('Ny arbeidstid',null,form);
+}
+function openRental(item,room,day,a,b){
+ const tenants=data.tenants??[];
+ if(!tenants.length){sheet('Romleie',null,el('p',{class:'empty'},'Legg til en leietaker under Administrer først.'));return;}
+ const sel=el('select',{required:true},...tenants.map(t=>el('option',{value:t.id},t.name)));
+ if(item)sel.value=item.rental.tenantId;
+ const tf=timeFields(item?item.start.slice(0,10):day,item?item.start.slice(11,16):a,item?item.end.slice(11,16):b,item?item.room:room);
+ const msg=el('p',{class:'msg',role:'status'});
+ const release=item?el('button',{type:'button',class:'btn danger',onclick:async()=>{if(await confirmBox('Frigi denne romleien?'))submit(form,msg,{action:'release-rental',id:item.rental.id},'Romleien er frigitt.');}},'Frigi'):null;
+ const form=el('form',{class:'choice'},field('Leietaker',sel),...tf.els,msg,el('div',{class:'btns'},el('button',{class:'btn primary'},item?'Lagre endring':'Reserver romleie'),release));
+ form.onsubmit=e=>{
+  e.preventDefault();
+  submit(form,msg,{action:item?'update-rental':'reserve-rental',id:item?item.rental.id:crypto.randomUUID(),week,tenantId:sel.value,room:tf.r.value,date:tf.d.value,from:tf.f.value,to:tf.t.value},item?'Romleien er endret.':'Romleien er reservert.');
+ };
+ sheet(item?'Endre romleie':'Ny romleie',item?item.name:null,form);
+}
+function openOwnSlot(slot,extra){
+ const tf=timeFields(slot.start.slice(0,10),slot.start.slice(11,16),slot.end.slice(11,16),slot.room);
+ const check=el('input',{type:'checkbox',required:true,id:'bookingsMoved'});
+ const msg=el('p',{class:'msg',role:'status'});
+ const release=el('button',{type:'button',class:'btn danger',onclick:()=>{
+  if(!check.checked){msg.textContent='Huk av for at eventuelle bookinger er flyttet før du frigir tiden.';check.focus();return;}
+  submit(form,msg,{action:'release-hours',week,id:slot.id,originalStart:slot.start,originalEnd:slot.end},'Tiden er frigitt.');
+ }},'Frigi tiden');
+ const form=el('form',{class:'choice'},
+  el('p',{class:'warn'},el('strong',{},'Viktig: '),'Romkalenderen sjekker ikke om kunder har booket time. Flytt eller avlys eventuelle bookinger i Wix før du endrer eller frigir tiden.'),
+  ...tf.els,el('label',{class:'check',htmlFor:'bookingsMoved'},check,'Jeg har flyttet eller avlyst eventuelle bookinger i dette tidsrommet'),
+  msg,el('div',{class:'btns'},el('button',{class:'btn primary'},'Lagre endring'),release));
+ const after=extra?[extra]:[];
+ form.onsubmit=e=>{
+  e.preventDefault();
+  submit(form,msg,{action:'update-hours',week,id:slot.id,originalStart:slot.start,originalEnd:slot.end,room:tf.r.value,date:tf.d.value,from:tf.f.value,to:tf.t.value},'Arbeidstiden er endret.');
+ };
+ sheet('Endre arbeidstid',cap(longDay.format(D(slot.start.slice(0,10))))+' · '+span(slot.start.slice(11,16),slot.end.slice(11,16)),form,...after);
+}
+function roomSelect(slot,name){
+ const s=el('select',{'aria-label':'Rom for '+name+' kl. '+slot.start.slice(11,16)},el('option',{value:'',disabled:true},'Velg rom'),...Object.entries(roomLabels).map(([v,t])=>el('option',{value:v},t)));
+ s.value=slot.room??'';
+ s.onchange=async()=>{
+  s.disabled=true;
+  try{
+   const {status,data:res}=await api({action:'assign-room',week,id:slot.id,start:slot.start,end:slot.end,room:s.value});
+   if(status!==200){toast(res.error??'Kunne ikke lagre rom.');s.value=slot.room??'';return;}
+   closeSheet();await load();toast('Rommet er lagret.');
+  }catch{toast('Kunne ikke lagre rom. Last uken på nytt.');s.value=slot.room??'';}
+  finally{s.disabled=false;}
+ };
+ return s;
+}
+function openItem(item){
+ if(item.rental&&Array.isArray(data.tenants))return openRental(item);
+ const now=nowLocal();
+ const future=(item.slots??[]).filter(s=>s.start>now);
+ const editable=item.own&&data.reservationEnabled&&future.length;
+ const assign=canAssign()&&item.slots?.length&&item.name!=='Avventer Wix'?el('section',{},el('h3',{},'Romvalg (administrator)'),...item.slots.map(s=>el('div',{class:'slotrow'},el('span',{},span(s.start.slice(11,16),s.end.slice(11,16))),roomSelect(s,item.name)))):null;
+ if(editable&&future.length===1)return openOwnSlot(future[0],assign);
+ const parts=[];
+ const day=item.start.slice(0,10);
+ if(item.name==='Avventer Wix')parts.push(el('p',{class:'warn'},'Rommet er holdt av mens Wix bekrefter arbeidstiden. Last siden på nytt om litt.'));
+ if(item.unknown)parts.push(el('p',{class:'warn'},'Arbeidstid i Wix som ikke hører til en terapeut i romkalenderen. Rommet regnes som opptatt.'));
+ if(!item.room&&!item.unknown)parts.push(el('p',{class:'warn'},'Denne arbeidstiden har ikke fått rom ennå.'));
+ if(editable)parts.push(el('section',{class:'choice'},el('h3',{},'Velg tid du vil endre eller frigi'),...future.map(s=>el('button',{type:'button',class:'btn',onclick:()=>openOwnSlot(s)},span(s.start.slice(11,16),s.end.slice(11,16))+(s.room?' · '+roomLabels[s.room]:'')+'  ›'))));
+ if(assign)parts.push(assign);
+ sheet(item.name,cap(longDay.format(D(day)))+' · '+span(item.s??item.start.slice(11,16),item.e??item.end.slice(11,16))+(item.room?' · '+roomLabels[item.room]:''),...parts);
+}
+$('newHours').onclick=()=>openReserve('mandibula',null,'','');
+$('newRental').onclick=()=>openRental(null,'mandibula',week<=today&&today<=shift(week,6)?today:week,'','');
+
+/* ---------- admin ---------- */
+function renderAdmin(){
+ const hasAdmin=Array.isArray(data.members)||Array.isArray(data.tenants);
+ $('tabAdmin').hidden=!hasAdmin;
+ if(!hasAdmin&&view==='admin')setView('calendar');
+ $('tenantAdmin').hidden=!Array.isArray(data.tenants);
+ $('tenantList').replaceChildren(...(data.tenants??[]).map(t=>el('li',{},t.name)));
+ $('memberAdmin').hidden=!Array.isArray(data.members);
+ $('members').replaceChildren(...(data.members??[]).map(m=>{
+  const b=el('button',{type:'button',class:'btn danger'},'Fjern');
+  b.onclick=async()=>{if(await confirmBox('Fjerne tilgangen for '+m.name+'?'))memberAction({action:'remove-member',email:m.email},b);};
+  return el('li',{},el('span',{},m.name,el('small',{},m.email+(m.role?' · '+(m.role==='rental-manager'?'Romansvarlig':'Terapeut'):''))),b);
+ }));
+ const issues=data.issues??[];
+ $('issueAdmin').hidden=!issues.length;
+ const fp=(s,e)=>!s||!e?'Tidspunkt mangler':cap(short.format(D(s.slice(0,10)))).replace('.','')+' '+s.slice(11,16)+'–'+(s.slice(0,10)===e.slice(0,10)?e.slice(11,16):short.format(D(e.slice(0,10)))+' '+e.slice(11,16));
+ $('issueList').replaceChildren(...issues.map(i=>el('li',{},(i.name?i.name+': ':'')+fp(i.start,i.end)+(i.type==='overlap'?' overlapper '+fp(i.otherStart,i.otherEnd)+'.':i.type==='unknown'?' · timeplan uten treff i terapeutlisten.':' · ugyldig arbeidstid.'))));
+}
+async function memberAction(input,button){
+ button.disabled=true;
+ try{
+  const {status,data:res}=await api(input);
+  $('memberStatus').textContent=status===200?'':res.error??'Kunne ikke oppdatere tilgang.';
+  if(status===200){if(input.action==='add-member')$('memberForm').reset();await load();toast('Tilgangen er oppdatert.');}
+ }catch{$('memberStatus').textContent='Kunne ikke oppdatere tilgang.';}
+ finally{button.disabled=false;}
+}
+$('memberForm').onsubmit=e=>{e.preventDefault();memberAction({action:'add-member',name:$('memberName').value,email:$('memberEmail').value,role:$('memberRole').value},e.submitter);};
+$('tenantForm').onsubmit=async e=>{
+ e.preventDefault();const b=e.submitter;b.disabled=true;
+ try{const {status,data:res}=await api({action:'add-tenant',name:$('tenantName').value});
+  $('tenantStatus').textContent=status===200?'':res.error??'Kunne ikke legge til.';
+  if(status===200){$('tenantName').value='';await load();toast('Leietakeren er lagt til.');}
+ }catch{$('tenantStatus').textContent='Kunne ikke legge til. Prøv igjen.';}
+ finally{b.disabled=false;}
+};
+function setView(v){
+ view=v;
+ $('calendar').hidden=v!=='calendar';$('admin').hidden=v!=='admin';
+ $('tabCal').setAttribute('aria-current',v==='calendar'?'page':'false');$('tabAdmin').setAttribute('aria-current',v==='admin'?'page':'false');
+}
+$('tabCal').onclick=()=>setView('calendar');$('tabAdmin').onclick=()=>setView('admin');
+
+/* ---------- load & login ---------- */
+const roleNames={admin:'Administrator',therapist:'Terapeut','rental-manager':'Romansvarlig'};
+async function load(){
+ const request=++revision;
+ try{
+  const {status,data:res}=await api();
+  if(request!==revision)return;
+  const ok=status===200;
+  $('login').hidden=ok;$('tabs').hidden=!ok;$('who').hidden=!ok;
+  $('status').textContent=status===401?'':res.error??'';
+  if(!ok){$('calendar').hidden=$('admin').hidden=true;return;}
+  data=res;
+  $('roleLabel').textContent=roleNames[data.role]??'';
+  setView(view);render();
+ }catch{if(request===revision)$('status').textContent='Kalenderen er midlertidig utilgjengelig.';}
+}
+const initialUrl=new URL(window.location.href);
+let loginToken=initialUrl.searchParams.get('token_hash');
+if(loginToken){initialUrl.searchParams.delete('token_hash');history.replaceState(null,'',initialUrl.pathname+initialUrl.search+initialUrl.hash);$('finishLogin').hidden=false;$('loginButton').hidden=true;}
+$('login').onsubmit=async e=>{
+ e.preventDefault();$('loginButton').disabled=true;
+ try{const {data:res}=await api({action:'request-link',email:$('email').value});$('status').textContent='';toast(res.error??res.message??'');}
+ catch{$('status').textContent='Innloggingen er midlertidig utilgjengelig.';}
+ finally{$('loginButton').disabled=false;}
+};
+$('finishLogin').onclick=async()=>{
+ $('finishLogin').disabled=true;
+ try{
+  const {status,data:res}=await api({action:'verify-link',tokenHash:loginToken});
+  $('status').textContent=res.error??'';
+  if(status===200||status===401){loginToken=null;$('finishLogin').hidden=true;$('loginButton').hidden=false;}
+  if(status===200)await load();
+ }catch{$('status').textContent='Innloggingen er midlertidig utilgjengelig.';}
+ finally{$('finishLogin').disabled=false;}
+};
+$('prev').onclick=()=>{week=shift(week,-7);load();};
+$('next').onclick=()=>{week=shift(week,7);load();};
+$('todayBtn').onclick=()=>{week=shift(today,-((D(today).getUTCDay()+6)%7));mobileDay=today;load();};
+$('logout').onclick=async()=>{
+ try{const {status}=await api({action:'logout'});if(status!==200)throw new Error();data=null;view='calendar';$('desk').replaceChildren();$('mob').replaceChildren();await load();}
+ catch{$('status').textContent='Kunne ikke logge ut. Prøv igjen.';}
+};
+load();
+</script></body></html>
